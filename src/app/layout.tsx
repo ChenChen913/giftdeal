@@ -11,7 +11,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="zh-CN">
+    /**
+     * suppressHydrationWarning 只作用在 <html> 这一层：
+     * 浏览器插件（Zotero、各类写作助手、翻译工具）常在 hydration 前
+     * 往 <html> 上塞属性（如 data-yiwx-installed），React 会判定属性不匹配并报错。
+     * 我们本身不动态改 <html> 属性，所以这里忽略外部注入是安全的。
+     */
+    <html lang="zh-CN" suppressHydrationWarning>
       <body>
         <Providers>{children}</Providers>
       </body>
