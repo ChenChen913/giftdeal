@@ -46,7 +46,8 @@ export function PlanDialog({ open, mode, plan, ledgerId, contacts, onClose, onSa
 
     if (mode === "complete" && plan) {
       setAmount((plan.plannedCents / 100).toString());
-      setOccurredAt(plan.expectedAt);
+      // 提前办完时不要记成未来日期，默认落在今天；已经过期的沿用预计日期
+      setOccurredAt(plan.daysUntil > 0 ? todayLocalDateOnly() : plan.expectedAt);
       setCreateRecord(true);
       return;
     }
@@ -122,7 +123,11 @@ export function PlanDialog({ open, mode, plan, ledgerId, contacts, onClose, onSa
             amountCents: cents,
           },
         });
-        toast(createRecord ? "已完成，并记入礼金" : "已标记完成");
+        toast(
+          createRecord
+            ? "已完成并记入账簿，可在该亲友的对账单里看到"
+            : "已标记完成（未记账）",
+        );
       }
 
       onSaved();

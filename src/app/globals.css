@@ -488,6 +488,7 @@ ul {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
   padding: 16px 20px;
   border-bottom: 1px solid var(--hairline);
 }

@@ -147,7 +147,13 @@ export default function PlansPage() {
             最近一场
           </div>
           <div className="stat-value">
-            {stats.nearest === null ? "—" : stats.nearest === 0 ? "今天" : `${stats.nearest} 天`}
+            {stats.nearest === null
+              ? "—"
+              : stats.nearest === 0
+                ? "今天"
+                : stats.nearest > 0
+                  ? `${stats.nearest} 天后`
+                  : `已过 ${-stats.nearest} 天`}
           </div>
           <div className="stat-foot">
             {stats.nearest === null ? "暂无预备中的事" : "按预计日期计算"}

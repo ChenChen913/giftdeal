@@ -14,6 +14,9 @@ import type { Contact, PageResult, PendingItem, PendingResult, Plan } from "@/li
 
 type SortKey = "recent" | "pending" | "net";
 
+/** 首页往来册每次渲染的条数，避免几百位亲友一次性铺开 */
+const CONTACTS_PAGE_SIZE = 30;
+
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "recent", label: "最近往来" },
   { key: "pending", label: "待回礼优先" },
@@ -33,6 +36,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
+  const [visibleCount, setVisibleCount] = useState(CONTACTS_PAGE_SIZE);
 
   useEffect(() => {
     if (!ledgerId) return;
@@ -102,6 +106,11 @@ export default function DashboardPage() {
 
     return list;
   }, [byFilter, query, sort]);
+
+  // 筛选、搜索或排序变化时回到第一页
+  useEffect(() => {
+    setVisibleCount(CONTACTS_PAGE_SIZE);
+  }, [query, sort, relation, stanceFilter, scene, timing]);
 
   const stance = overview ? netStance(overview.netCents) : null;
   const flow = overview ? overview.givenTotalCents + overview.receivedTotalCents : 0;
@@ -348,7 +357,7 @@ export default function DashboardPage() {
             />
           ) : (
             <div>
-              {filtered.map((contact) => (
+              {filtered.slice(0, visibleCount).map((contact) => (
                 <Link key={contact.id} href={`/contacts/${contact.id}`} className="contact-row">
                   <Avatar name={person(contact.name)} size="md" />
                   <div className="contact-main">
@@ -397,6 +406,18 @@ export default function DashboardPage() {
                   <Icon name="chevronRight" size={16} style={{ color: "var(--ink-4)" }} />
                 </Link>
               ))}
+
+              {visibleCount < filtered.length ? (
+                <div style={{ padding: "12px 16px 16px", textAlign: "center" }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setVisibleCount((count) => count + CONTACTS_PAGE_SIZE)}
+                  >
+                    显示更多（还有 {filtered.length - visibleCount} 位）
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
