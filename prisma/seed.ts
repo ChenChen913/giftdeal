@@ -115,7 +115,7 @@ type SeedEvent = {
 };
 
 /**
- * 一条完整的人生线：2018 结婚 → 两个孩子各自的满月/百岁 → 2025 父亲白事。
+ * 一条完整的人生线：2018 结婚 → 两个孩子各自的满月/百岁 → 2025 长辈白事。
  * 每场事配 4–8 笔礼金，用来演示「以个人为中心」的时间线。
  */
 const EVENTS: SeedEvent[] = [
@@ -124,7 +124,7 @@ const EVENTS: SeedEvent[] = [
   { id: "evt_a_003", ledgerId: "led_zhang", title: "长子百岁", scene: "BABY_HUNDRED_DAYS", occurredAt: "2019-11-24", location: "家里", note: "只请了至亲，简单办的" },
   { id: "evt_a_004", ledgerId: "led_zhang", title: "次女满月", scene: "BABY_FULL_MONTH", occurredAt: "2022-03-12", location: "城南酒店", note: "10 桌" },
   { id: "evt_a_005", ledgerId: "led_zhang", title: "次女百岁", scene: "BABY_HUNDRED_DAYS", occurredAt: "2022-06-20", location: "家里", note: "只请了至亲" },
-  { id: "evt_a_006", ledgerId: "led_zhang", title: "父亲白事", scene: "FUNERAL", occurredAt: "2025-09-08", location: "老家", note: "按习俗办了三天" },
+  { id: "evt_a_006", ledgerId: "led_zhang", title: "长辈白事", scene: "FUNERAL", occurredAt: "2025-09-08", location: "老家", note: "按习俗办了三天" },
 ];
 
 const RECORDS: SeedRecord[] = [
@@ -144,7 +144,7 @@ const RECORDS: SeedRecord[] = [
   { id: "rec_a_013", ledgerId: "led_zhang", contactId: "con_a_001", direction: "GIVEN", amountCents: 80000, scene: "WEDDING", occurredAt: "2026-01-15", note: "回礼" },
   { id: "rec_a_014", ledgerId: "led_zhang", contactId: "con_a_002", direction: "GIVEN", amountCents: 40000, scene: "BABY_FULL_MONTH", occurredAt: "2026-08-16" },
 
-  // ---- 人生大事礼金：2018 婚礼 → 两个孩子满月/百岁 → 2025 父亲白事 ----
+  // ---- 人生大事礼金：2018 婚礼 → 两个孩子满月/百岁 → 2025 长辈白事 ----
   // 我的婚礼 2018-05-20，收礼 8200 元
   { id: "rec_a_101", ledgerId: "led_zhang", contactId: "con_a_001", direction: "RECEIVED", amountCents: 200000, scene: "WEDDING", occurredAt: "2018-05-20", note: "二舅随礼", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
   { id: "rec_a_102", ledgerId: "led_zhang", contactId: "con_a_002", direction: "RECEIVED", amountCents: 120000, scene: "WEDDING", occurredAt: "2018-05-20", note: "刘芳随礼", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
@@ -181,7 +181,7 @@ const RECORDS: SeedRecord[] = [
   { id: "rec_a_125", ledgerId: "led_zhang", contactId: "con_a_008", direction: "RECEIVED", amountCents: 50000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2022-06-20", note: "姑姑", eventId: "evt_a_005", settledAt: "2022-07-30T02:00:00.000Z" },
   { id: "rec_a_126", ledgerId: "led_zhang", contactId: "con_a_009", direction: "RECEIVED", amountCents: 30000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2022-06-20", note: "表姐", eventId: "evt_a_005", settledAt: "2022-07-30T02:00:00.000Z" },
 
-  // 父亲白事 2025-09-08，收礼 4700 元
+  // 长辈白事 2025-09-08，收礼 4700 元
   { id: "rec_a_127", ledgerId: "led_zhang", contactId: "con_a_001", direction: "RECEIVED", amountCents: 100000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "白事", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
   { id: "rec_a_128", ledgerId: "led_zhang", contactId: "con_a_002", direction: "RECEIVED", amountCents: 80000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "白事", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
   { id: "rec_a_129", ledgerId: "led_zhang", contactId: "con_a_003", direction: "RECEIVED", amountCents: 50000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "同事", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
