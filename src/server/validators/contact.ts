@@ -1,10 +1,11 @@
 import { z } from "zod";
 
-import { LIMITS } from "@/lib/constants";
+import { CONTACT_GROUPS, LIMITS } from "@/lib/constants";
 
 import { atLeastOneField, optionalText, trimmedText } from "./common";
 
-const relationTag = optionalText(LIMITS.relationTagMax, "关系标签");
+/** 亲友分组是受控枚举；null 表示未分组 */
+const relationTag = z.enum(CONTACT_GROUPS).nullable().optional();
 const phone = optionalText(LIMITS.contactPhoneMax, "手机号");
 const note = optionalText(LIMITS.noteMax, "备注");
 

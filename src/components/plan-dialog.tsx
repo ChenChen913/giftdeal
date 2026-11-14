@@ -6,7 +6,7 @@ import { Icon } from "@/components/icons";
 import { useToast, usePrivacy } from "@/components/providers";
 import { Modal, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { GIFT_SCENES, SCENE_LABELS } from "@/lib/constants";
+import { CONTACT_GROUPS, CONTACT_GROUP_LABELS, GIFT_SCENES, SCENE_LABELS } from "@/lib/constants";
 import { todayLocalDateOnly } from "@/lib/date";
 import type { Contact, GiftScene, PageResult, Plan } from "@/lib/types";
 
@@ -181,12 +181,21 @@ export function PlanDialog({ open, mode, plan, ledgerId, contacts, onClose, onSa
               onChange={(event) => setContactId(event.target.value)}
             >
               <option value="">请选择亲友</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {person(contact.name)}
-                  {contact.relationTag ? ` · ${contact.relationTag}` : ""}
-                </option>
-              ))}
+              {CONTACT_GROUPS.map((group) => {
+                const list = contacts.filter(
+                  (contact) => (contact.relationTag ?? "OTHER") === group,
+                );
+                if (list.length === 0) return null;
+                return (
+                  <optgroup key={group} label={CONTACT_GROUP_LABELS[group]}>
+                    {list.map((contact) => (
+                      <option key={contact.id} value={contact.id}>
+                        {person(contact.name)}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           )}
         </div>

@@ -360,7 +360,7 @@ await authClient.signOut();    // POST /api/auth/sign-out
     "planCents": 260000,
     "eventCount": 6,
     "nextPlan": {
-      "id": "plan_a_001", "contact": { "id": "con_a_006", "name": "周敏", "relationTag": "朋友" },
+      "id": "plan_a_001", "contact": { "id": "con_a_006", "name": "周敏", "relationTag": "FRIEND" },
       "scene": "WEDDING", "sceneLabel": "婚礼", "plannedCents": 80000,
       "expectedAt": "2026-11-28", "daysUntil": 18, "status": "PLANNED"
     },
@@ -400,7 +400,7 @@ await authClient.signOut();    // POST /api/auth/sign-out
       {
         "id": "con_a_001",
         "name": "王建国",
-        "relationTag": "亲戚",
+        "relationTag": "FATHER_SIDE",
         "phone": null,
         "note": null,
         "createdAt": "...",
@@ -430,13 +430,13 @@ await authClient.signOut();    // POST /api/auth/sign-out
 入参：
 
 ```json
-{ "name": "王建国", "relationTag": "亲戚", "phone": "13900000001", "note": "二舅" }
+{ "name": "王建国", "relationTag": "FATHER_SIDE", "phone": "13900000001", "note": "二舅" }
 ```
 
 | 字段 | 必填 | 规则 |
 |---|---|---|
 | name | ✓ | 1–30 字符，去空格后非空；同账本内未删除联系人不得重名 |
-| relationTag | — | ≤20 字符 |
+| relationTag | — | 亲友分组枚举：`FATHER_SIDE` / `MOTHER_SIDE` / `PRIMARY_SCHOOL` / `JUNIOR_SCHOOL` / `HIGH_SCHOOL` / `COLLEGE` / `COLLEAGUE` / `FRIEND` / `OTHER`，或 `null` |
 | phone | — | ≤20 字符，不做格式校验 |
 | note | — | ≤200 字符 |
 
@@ -485,7 +485,7 @@ await authClient.signOut();    // POST /api/auth/sign-out
 {
   "ok": true,
   "data": {
-    "contact": { "id": "con_a_001", "name": "王建国", "relationTag": "亲戚" },
+    "contact": { "id": "con_a_001", "name": "王建国", "relationTag": "FATHER_SIDE" },
     "summary": {
       "givenTotalCents": 80000,
       "receivedTotalCents": 130000,
@@ -669,7 +669,7 @@ await authClient.signOut();    // POST /api/auth/sign-out
     "items": [
       {
         "id": "rec_a_0003",
-        "contact": { "id": "con_a_002", "name": "刘芳", "relationTag": "亲戚" },
+        "contact": { "id": "con_a_002", "name": "刘芳", "relationTag": "FATHER_SIDE" },
         "amountCents": 100000,
         "amountYuan": "1000.00",
         "scene": "WEDDING",
@@ -786,7 +786,7 @@ await authClient.signOut();    // POST /api/auth/sign-out
   "id": "plan_a_001",
   "ledgerId": "led_zhang",
   "contactId": "con_a_006",
-  "contact": { "id": "con_a_006", "name": "周敏", "relationTag": "朋友" },
+  "contact": { "id": "con_a_006", "name": "周敏", "relationTag": "FRIEND" },
   "direction": "GIVEN",
   "scene": "WEDDING",
   "sceneLabel": "婚礼",

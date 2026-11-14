@@ -9,7 +9,8 @@ import { useLedger, usePrivacy } from "@/components/providers";
 import { useRecordDialog } from "@/components/record-dialog";
 import { Avatar, Donut, Empty, LoadingBlock } from "@/components/ui";
 import { api } from "@/lib/api";
-import {formatDate, netStance, SCENE_COLORS, SCENE_TONE} from "@/lib/format";
+import { formatDate, netStance, SCENE_COLORS, SCENE_TONE } from "@/lib/format";
+import { contactGroupLabel } from "@/lib/constants";
 import type { Contact, LifeEvent, PageResult, PendingItem, PendingResult, Plan } from "@/lib/types";
 
 type SortKey = "recent" | "pending" | "net";
@@ -411,7 +412,9 @@ export default function DashboardPage() {
                     <div className="contact-name-line">
                       <span className="contact-name">{person(contact.name)}</span>
                       {contact.relationTag ? (
-                        <span className="chip chip-neutral">{contact.relationTag}</span>
+                        <span className="chip chip-neutral">
+                          {contactGroupLabel(contact.relationTag)}
+                        </span>
                       ) : null}
                       {contact.stats.unsettledReceivedCount > 0 ? (
                         <span className="chip chip-primary hide-mobile">待回礼</span>

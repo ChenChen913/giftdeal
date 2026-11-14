@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
+import { contactGroupLabel } from "@/lib/constants";
 import {formatDate} from "@/lib/format";
 import type { Contact, PageResult } from "@/lib/types";
+import { ContactDialog } from "./contact-dialog";
 import { ContactFilters, useContactFilter } from "./contact-filters";
 import { useLedger, usePrivacy } from "./providers";
 import { Avatar, Empty, LoadingBlock } from "./ui";
@@ -28,6 +30,8 @@ export function ContactList({ activeId }: { activeId?: string }) {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!ledgerId) return;
@@ -47,7 +51,7 @@ export function ContactList({ activeId }: { activeId?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [ledgerId, overview?.recordCount]);
+  }, [ledgerId, overview?.recordCount, refreshKey]);
 
   const {
     relation,
@@ -90,10 +94,20 @@ export function ContactList({ activeId }: { activeId?: string }) {
       <div className="list-panel-head">
         <div className="row between">
           <span className="title-sm">亲友名录</span>
-          <span className="caption">
-            {filtered.length} 位
-            {truncated ? `（共 ${contactTotal} 位，仅加载最近 500 位）` : ""}
-          </span>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="caption">
+              {filtered.length} 位
+              {truncated ? `（共 ${contactTotal} 位，仅显示最近 500 位）` : ""}
+            </span>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Icon name="plus" size={13} />
+              新增
+            </button>
+          </div>
         </div>
         <div className="search-box">
           <span className="icon">
@@ -157,7 +171,7 @@ export function ContactList({ activeId }: { activeId?: string }) {
                   ) : null}
                 </div>
                 <div className="person-sub">
-                  {contact.relationTag ?? "亲友"} ·{" "}
+                  {contactGroupLabel(contact.relationTag) ?? "未分组"} ·{" "}
                   {contact.stats.recordCount > 0
                     ? `双向往来 ${contact.stats.recordCount} 笔`
                     : "暂无往来"}
@@ -190,6 +204,13 @@ export function ContactList({ activeId }: { activeId?: string }) {
           ))
         )}
       </div>
+
+      <ContactDialog
+        open={createOpen}
+        ledgerId={ledgerId ?? ""}
+        onClose={() => setCreateOpen(false)}
+        onSaved={() => setRefreshKey((key) => key + 1)}
+      />
     </div>
   );
 }

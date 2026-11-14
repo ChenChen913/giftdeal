@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { api, ApiError } from "@/lib/api";
+import { CONTACT_GROUPS, CONTACT_GROUP_LABELS } from "@/lib/constants";
 import { todayLocalDateOnly } from "@/lib/date";
 import { formatDate } from "@/lib/format";
 import type { Contact, LifeEvent, PageResult, RecordDirection, RecordItem } from "@/lib/types";
@@ -448,12 +449,21 @@ export function RecordDialogProvider({ children }: { children: ReactNode }) {
                   }}
                 >
                   <option value="">请选择亲友</option>
-                  {contacts.map((contact) => (
-                    <option key={contact.id} value={contact.id}>
-                      {person(contact.name)}
-                      {contact.relationTag ? ` · ${contact.relationTag}` : ""}
-                    </option>
-                  ))}
+                  {CONTACT_GROUPS.map((group) => {
+                    const list = contacts.filter(
+                      (contact) => (contact.relationTag ?? "OTHER") === group,
+                    );
+                    if (list.length === 0) return null;
+                    return (
+                      <optgroup key={group} label={CONTACT_GROUP_LABELS[group]}>
+                        {list.map((contact) => (
+                          <option key={contact.id} value={contact.id}>
+                            {person(contact.name)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
                 </select>
               )}
             </div>

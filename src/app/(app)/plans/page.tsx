@@ -8,6 +8,7 @@ import { PlanDialog, fetchContacts } from "@/components/plan-dialog";
 import { useLedger, useToast, usePrivacy } from "@/components/providers";
 import { Avatar, Empty, LoadingBlock, Modal, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { contactGroupLabel } from "@/lib/constants";
 import {formatDate, SCENE_TONE} from "@/lib/format";
 import type { Contact, PageResult, Plan } from "@/lib/types";
 
@@ -219,7 +220,9 @@ export default function PlansPage() {
                     {person(plan.contact.name)}
                   </Link>
                   {plan.contact.relationTag ? (
-                    <span className="chip chip-neutral">{plan.contact.relationTag}</span>
+                    <span className="chip chip-neutral">
+                      {contactGroupLabel(plan.contact.relationTag)}
+                    </span>
                   ) : null}
                   <span className={`chip ${SCENE_TONE[plan.scene]}`}>{plan.sceneLabel}</span>
                   {plan.status === "PLANNED" ? (

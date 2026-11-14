@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
+import { CONTACT_GROUPS, CONTACT_GROUP_LABELS, contactGroupLabel } from "@/lib/constants";
 import {formatDate, netStance, SCENE_TONE} from "@/lib/format";
 import type { Contact, RecordItem, SettlementResponse } from "@/lib/types";
 import { Icon } from "./icons";
@@ -147,7 +148,9 @@ export function ContactDetail({ contactId }: { contactId: string }) {
           <div className="row row-wrap" style={{ gap: 8 }}>
             <span className="detail-name">{person(settlement.contact.name)}</span>
             {settlement.contact.relationTag ? (
-              <span className="chip chip-neutral">{settlement.contact.relationTag}</span>
+              <span className="chip chip-neutral">
+                {contactGroupLabel(settlement.contact.relationTag)}
+              </span>
             ) : null}
             {summary.unsettledReceivedCount > 0 ? (
               <span className="chip chip-primary">待回礼 {summary.unsettledReceivedCount} 笔</span>
@@ -400,13 +403,19 @@ export function ContactDetail({ contactId }: { contactId: string }) {
         </div>
         <div className="row" style={{ gap: 12, alignItems: "flex-start" }}>
           <div className="field grow">
-            <span className="label">关系标签</span>
-            <input
-              className="input"
-              placeholder="亲戚 / 同事 / 同学…"
+            <span className="label">分组</span>
+            <select
+              className="select"
               value={form.relationTag}
               onChange={(event) => setForm({ ...form, relationTag: event.target.value })}
-            />
+            >
+              <option value="">未分组</option>
+              {CONTACT_GROUPS.map((group) => (
+                <option key={group} value={group}>
+                  {CONTACT_GROUP_LABELS[group]}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="field grow">
             <span className="label">手机号</span>

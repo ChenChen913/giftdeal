@@ -2,12 +2,17 @@
 
 import { useMemo, useState } from "react";
 
-import { GIFT_SCENES, SCENE_LABELS, type GiftScene } from "@/lib/constants";
+import {
+  CONTACT_GROUPS,
+  CONTACT_GROUP_LABELS,
+  GIFT_SCENES,
+  SCENE_LABELS,
+  type ContactGroup,
+  type GiftScene,
+} from "@/lib/constants";
 import type { Contact } from "@/lib/types";
 
-export const RELATION_PRESETS = ["亲戚", "朋友", "同事", "同学", "邻居"] as const;
-
-export type RelationFilter = "all" | "其他" | (typeof RELATION_PRESETS)[number];
+export type RelationFilter = "all" | ContactGroup;
 export type StanceFilter = "all" | "receive" | "give" | "even";
 export type SceneFilter = "all" | GiftScene;
 /** 时序：与「记一笔」按日期分流对应 */
@@ -29,8 +34,10 @@ const STANCE_OPTIONS: { key: StanceFilter; label: string }[] = [
 
 const RELATION_OPTIONS: { key: RelationFilter; label: string }[] = [
   { key: "all", label: "全部" },
-  ...RELATION_PRESETS.map((item) => ({ key: item as RelationFilter, label: item })),
-  { key: "其他", label: "其他" },
+  ...CONTACT_GROUPS.map((group) => ({
+    key: group as RelationFilter,
+    label: CONTACT_GROUP_LABELS[group],
+  })),
 ];
 
 const SCENE_OPTIONS: { key: SceneFilter; label: string }[] = [
@@ -40,11 +47,8 @@ const SCENE_OPTIONS: { key: SceneFilter; label: string }[] = [
 
 function matchRelation(contact: Contact, filter: RelationFilter): boolean {
   if (filter === "all") return true;
-  const tag = contact.relationTag?.trim() ?? "";
-  if (filter === "其他") {
-    return !RELATION_PRESETS.includes(tag as (typeof RELATION_PRESETS)[number]);
-  }
-  return tag === filter;
+  // 未分组的亲友按「其他」处理
+  return (contact.relationTag ?? "OTHER") === filter;
 }
 
 function matchStance(contact: Contact, filter: StanceFilter): boolean {

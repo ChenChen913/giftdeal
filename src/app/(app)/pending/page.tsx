@@ -9,6 +9,7 @@ import { useRecordDialog } from "@/components/record-dialog";
 import { RecordDeleteDialog, RecordEditDialog } from "@/components/record-edit-dialog";
 import { Avatar, Empty, LoadingBlock, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { contactGroupLabel } from "@/lib/constants";
 import {formatDate, SCENE_TONE} from "@/lib/format";
 import type { PendingItem, PendingResult } from "@/lib/types";
 
@@ -165,7 +166,9 @@ export default function PendingPage() {
                     {person(record.contact.name)}
                   </Link>
                   {record.contact.relationTag ? (
-                    <span className="chip chip-neutral">{record.contact.relationTag}</span>
+                    <span className="chip chip-neutral">
+                      {contactGroupLabel(record.contact.relationTag)}
+                    </span>
                   ) : null}
                   <span className={`chip ${SCENE_TONE[record.scene]}`}>{record.sceneLabel}</span>
                 </div>

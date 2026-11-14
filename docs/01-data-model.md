@@ -70,7 +70,7 @@ User ──< Membership >── Ledger ──< Contact ──< Record
 | id | String (PK) | — |
 | ledgerId | FK → Ledger | 级联删除 |
 | name | VarChar(30) | 姓名，账本内唯一（仅对未删除的记录生效） |
-| relationTag | VarChar(20)? | 关系标签，自由文本。建议值：亲戚 / 朋友 / 同事 / 同学 / 邻居 / 其他 |
+| relationTag | VarChar(20)? | 亲友分组，受控枚举：`FATHER_SIDE` / `MOTHER_SIDE` / `PRIMARY_SCHOOL` / `JUNIOR_SCHOOL` / `HIGH_SCHOOL` / `COLLEGE` / `COLLEAGUE` / `FRIEND` / `OTHER` |
 | phone | VarChar(20)? | 可选，便于联系 |
 | note | VarChar(200)? | 备注 |
 | deletedAt | DateTime? | **软删除标记** |

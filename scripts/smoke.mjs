@@ -106,15 +106,15 @@ async function main() {
   // ---------- 3. 联系人 ----------
   section("3. 联系人搜索与 CRUD");
   const search = await call("GET", "/api/v1/contacts?q=%E7%8E%8B", { ledgerId });
-  check("模糊搜索「王」命中 1 人", search.body?.data?.items?.length === 1, search.body);
-  check("命中王建国", search.body?.data?.items?.[0]?.name === "王建国", search.body?.data?.items);
+  check("模糊搜索「王」命中 2 人", search.body?.data?.items?.length === 2, search.body);
 
-  const wang = search.body?.data?.items?.[0];
+  const wang = search.body?.data?.items?.find((item) => item.name === "王建国");
+  check("命中王建国", Boolean(wang), search.body?.data?.items);
   check("王建国净差额 +610000 分", wang?.stats?.netCents === 610000, wang?.stats);
 
   const created = await call("POST", "/api/v1/contacts", {
     ledgerId,
-    body: { name: "冒烟测试", relationTag: "同事" },
+    body: { name: "冒烟测试", relationTag: "COLLEAGUE" },
   });
   check("新建联系人返回 201", created.status === 201, created.body);
 
