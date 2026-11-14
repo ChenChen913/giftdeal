@@ -445,6 +445,19 @@ async function report() {
 
 async function main() {
   const shouldReset = process.argv.includes("--reset");
+
+  /**
+   * 生产环境保护：seed 会写入演示数据，--reset 还会物理清空全部业务数据
+   * （软删除也救不回来）。默认拒绝，确实需要时显式设置 ALLOW_SEED=true。
+   */
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_SEED !== "true") {
+    throw new Error(
+      "拒绝在 production 环境执行 seed：会写入演示数据" +
+        (shouldReset ? "，且 --reset 会清空全部业务数据" : "") +
+        "。确实需要请显式设置 ALLOW_SEED=true。",
+    );
+  }
+
   if (shouldReset) await reset();
 
   // 必须先建账本再挂 admin：admin 的 defaultLedgerId 是外键，
@@ -453,8 +466,11 @@ async function main() {
   await seedAdmin();
   console.log("\nSeed 完成：\n");
   await report();
-  console.log("\n登录方式一（手机验证码）：+8613800000001 / 123456");
-  console.log("登录方式二（内部快捷）：手机号框填 admin，无需验证码");
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("\n登录方式一（手机验证码）：+8613800000001 / 123456");
+    console.log("登录方式二（内部快捷）：手机号框填 admin，无需验证码");
+  }
 }
 
 main()

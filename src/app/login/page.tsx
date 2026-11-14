@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -29,13 +30,17 @@ const FEATURES = [
 /** 内部账号：只允许这一个字母组合，其余必须是 11 位手机号 */
 const ADMIN_ACCOUNT = "admin";
 
+/** 演示账号提示只在非生产构建里显示；生产可用 NEXT_PUBLIC_SHOW_DEMO_HINT=true 强制打开 */
+const SHOW_DEMO_HINT =
+  process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_SHOW_DEMO_HINT !== "false";
+
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading, refresh } = useAuth();
 
   const [account, setAccount] = useState("");
   const [code, setCode] = useState("");
-  const [agreed, setAgreed] = useState(true);
+  const [agreed, setAgreed] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [sending, setSending] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -281,21 +286,43 @@ export default function LoginPage() {
             {isAdmin ? "进入账本" : "立即登录 · 进入账本"}
           </button>
 
-          <label className="row" style={{ gap: 8, alignItems: "flex-start", cursor: "pointer" }}>
+          <div className="row" style={{ gap: 8, alignItems: "flex-start" }}>
             <input
+              id="agree-legal"
               type="checkbox"
               checked={agreed}
               onChange={(event) => setAgreed(event.target.checked)}
               style={{ marginTop: 3, accentColor: "var(--primary-container)" }}
             />
             <span className="caption" style={{ lineHeight: 1.7 }}>
-              我已阅读并同意《服务协议》《隐私政策》及家庭隐私数据加密准则。
+              <label htmlFor="agree-legal" style={{ cursor: "pointer" }}>
+                我已阅读并同意
+              </label>
+              <Link
+                href="/legal/terms"
+                target="_blank"
+                style={{ color: "var(--primary)" }}
+              >
+                《服务协议》
+              </Link>
+              与
+              <Link
+                href="/legal/privacy"
+                target="_blank"
+                style={{ color: "var(--primary)" }}
+              >
+                《隐私政策》
+              </Link>
             </span>
-          </label>
+          </div>
 
           <p className="login-foot">
-            手机演示：13800000001 / 123456
-            <br />
+            {SHOW_DEMO_HINT ? (
+              <>
+                手机演示：13800000001 / 123456
+                <br />
+              </>
+            ) : null}
             礼尚 · 东方家庭人情数字账本
           </p>
         </form>

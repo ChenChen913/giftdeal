@@ -19,6 +19,7 @@
 | 人情预备 | `/plans` | 未来已知的红白事提前备礼：新增 / 修改 / 删除 / 完成（可同时记一笔），首页有汇总区块 |
 | 家庭共享 | `/ledger` | 账本信息、成员、邀请链接、多账本切换 |
 | 邀请落地 | `/invite/[token]` | 接受邀请加入账本 |
+| 服务协议 / 隐私政策 | `/legal/terms` · `/legal/privacy` | 静态条款页，登录页底部可进入 |
 
 <table>
 <tr>
@@ -126,6 +127,7 @@ npm run dev
 | `npm run dev` | 开发服务（需已有数据库在跑） |
 | `npm run build` | `prisma generate` + 生产构建 |
 | `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | 纯函数单元测试（日期 / 金额 / 遮罩） |
 | `npm run db:deploy` | 应用迁移（生产 / CI） |
 | `npm run db:seed` | 写入演示数据（幂等） |
 | `npm run db:seed -- --reset` | 先清空演示数据再写入 |
@@ -201,6 +203,8 @@ await authClient.phoneNumber.verify({ phoneNumber: "+8613800000001", code: "1234
 |---|---|
 | 用户 | `GET /me`、`PATCH /me` |
 | 账本 | `GET/POST /ledgers`、`GET/PATCH /ledgers/{id}`、`GET /overview` |
+| 成员 | `DELETE /ledgers/{id}/members/me`（退出）、`POST /ledgers/{id}/transfer`（转让管理员） |
+| 导出 | `GET /export`（需先解锁隐私模式） |
 | 联系人 | `GET/POST /contacts`、`GET/PATCH/DELETE /contacts/{id}`、`GET /contacts/{id}/settlement` |
 | 记录 | `GET/POST /records`、`GET/PATCH/DELETE /records/{id}`、`POST /records/{id}/settle`、`POST /records/{id}/unsettle` |
 | 待回礼 | `GET /pending-returns` |
@@ -230,11 +234,13 @@ await authClient.phoneNumber.verify({ phoneNumber: "+8613800000001", code: "1234
 
 ## 部署（Vercel + Neon）
 
+完整清单见 [`docs/04-deploy-checklist.md`](docs/04-deploy-checklist.md)，含环境变量表、上线后逐项验证与回滚方式。要点：
+
 1. Neon 建库，复制 **pooled** 串 → `DATABASE_URL`，**direct** 串 → `DIRECT_URL`。
-2. Vercel 环境变量：上面两个 + `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（生产域名）、`NEXT_PUBLIC_APP_URL`（邀请链接域名）、`SMS_PROVIDER=mock`。
-3. Build Command：`npm run build`（内含 `prisma generate`）。
+2. Vercel 环境变量：上面两个 + `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（生产域名）、`NEXT_PUBLIC_APP_URL`（邀请链接域名）、`SMS_PROVIDER`。
+3. Build Command：`npm run build`（`postinstall` 内含 `prisma generate`）。
 4. 迁移在本地或 CI 执行 `npx prisma migrate deploy`，**不要**放进 build（并发构建会重复执行）。
-5. 生产环境**不要**设置 `OTP_ALLOW_FIXED_CODE`，否则任何人都能用固定验证码登录。
+5. 生产环境**不要**设置 `OTP_ALLOW_FIXED_CODE` 和 `ALLOW_ADMIN_LOGIN`，否则任何人都能用固定验证码或 admin 账号登录。
 
 ---
 
@@ -243,4 +249,6 @@ await authClient.phoneNumber.verify({ phoneNumber: "+8613800000001", code: "1234
 - 短信是 mock：验证码只打印在服务端日志，未接真实通道。
 - 删除一律软删除：删联系人保留其礼金记录；删「用于结清的送出记录」会把对应收礼回退为待回礼。
 - 记录创建后 `contactId` / `direction` 不可改（避免结清关系错乱），要改请删除后重建。
-- 不做：微信登录、复杂 RBAC、审计日志、数据导出、礼俗知识库、退出账本 / 转让 OWNER。
+- 账本管理员不能直接退出，必须先转让给其他成员；账本本身不能删除。
+- 隐私模式密码是全局共享的，且失败锁定在进程内（多实例部署下不严格）。
+- 不做：微信登录、复杂 RBAC、审计日志、礼俗知识库。

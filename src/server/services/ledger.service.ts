@@ -1,4 +1,5 @@
 import type { MembershipRole } from "@/lib/constants";
+import { maskPhone } from "@/lib/mask";
 
 import { bootstrapUser } from "@/server/bootstrap";
 import { prisma } from "@/server/db";
@@ -145,8 +146,86 @@ export async function renameLedger(ctx: LedgerContext, name: string) {
   };
 }
 
-export async function setDefaultLedger(userId: string, ledgerId: string) {
-  const membership = await prisma.membership.findUnique({
+/**
+ * 退出账本。
+ * OWNER 不能直接退出：账本会失去管理员，所以必须先转让。
+ * 退出的是默认账本时，把默认账本指向剩下的第一本；一本都不剩才置空，
+ * 由 /me 的 bootstrap 兜底建新账本。
+ */
+export async function leaveLedger(ctx: LedgerContext) {
+  if (ctx.role === "OWNER") {
+    const memberCount = await prisma.membership.count({ where: { ledgerId: ctx.ledgerId } });
+    throw new AppError(
+      "CONFLICT",
+      undefined,
+      memberCount > 1
+        ? "你是该账本的管理员，请先把管理员转让给其他成员再退出"
+        : "你是该账本唯一的管理员，无法退出",
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.membership.delete({
+      where: { ledgerId_userId: { ledgerId: ctx.ledgerId, userId: ctx.userId } },
+    });
+
+    const user = await tx.user.findUnique({
+      where: { id: ctx.userId },
+      select: { defaultLedgerId: true },
+    });
+
+    if (user?.defaultLedgerId === ctx.ledgerId) {
+      const next = await tx.membership.findFirst({
+        where: { userId: ctx.userId },
+        orderBy: { joinedAt: "asc" },
+        select: { ledgerId: true },
+      });
+      await tx.user.update({
+        where: { id: ctx.userId },
+        data: { defaultLedgerId: next?.ledgerId ?? null },
+      });
+    }
+  });
+
+  return { left: true };
+}
+
+/** 转让管理员：仅当前 OWNER 可操作，目标必须已是本账本成员 */
+export async function transferOwnership(ctx: LedgerContext, targetUserId: string) {
+  requireOwner(ctx);
+
+  if (targetUserId === ctx.userId) {
+    throw new AppError("VALIDATION_ERROR", {
+      fieldErrors: { userId: ["不能转让给自己"] },
+    });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const target = await tx.membership.findUnique({
+      where: { ledgerId_userId: { ledgerId: ctx.ledgerId, userId: targetUserId } },
+      select: { id: true },
+    });
+    if (!target) throw new AppError("NOT_FOUND", undefined, "该用户不是本账本成员");
+
+    // 条件更新：并发下只有一个请求能把 OWNER 交出去
+    const demoted = await tx.membership.updateMany({
+      where: { ledgerId: ctx.ledgerId, userId: ctx.userId, role: "OWNER" },
+      data: { role: "MEMBER" },
+    });
+    if (demoted.count === 0) {
+      throw new AppError("FORBIDDEN", undefined, "你已不是该账本管理员");
+    }
+
+    await tx.membership.update({
+      where: { ledgerId_userId: { ledgerId: ctx.ledgerId, userId: targetUserId } },
+      data: { role: "OWNER" },
+    });
+
+    return { transferred: true, newOwnerId: targetUserId };
+  });
+}
+
+export async function setDefaultLedger(userId: string, ledgerId: string) {  const membership = await prisma.membership.findUnique({
     where: { ledgerId_userId: { ledgerId, userId } },
     select: { id: true },
   });
@@ -182,10 +261,4 @@ export async function getMe(userId: string) {
       isDefault: ledger.id === defaultLedgerId,
     })),
   };
-}
-
-function maskPhone(phone: string): string {
-  const digits = phone.replace(/^\+86/, "");
-  if (digits.length < 7) return "***";
-  return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
 }

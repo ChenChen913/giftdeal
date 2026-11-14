@@ -27,7 +27,8 @@ export type IconName =
   | "info"
   | "eye"
   | "eyeOff"
-  | "lock";
+  | "lock"
+  | "download";
 
 const PATHS: Record<IconName, ReactNode> = {
   home: (
@@ -169,6 +170,13 @@ const PATHS: Record<IconName, ReactNode> = {
       <rect x="4.5" y="10.5" width="15" height="10" rx="2" />
       <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
       <path d="M12 14.5v2.5" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 3v12" />
+      <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
+      <path d="M4.5 20.5h15" />
     </>
   ),
 };

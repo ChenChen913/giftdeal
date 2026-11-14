@@ -1,17 +1,21 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Icon } from "@/components/icons";
-import { useLedger, useToast, usePrivacy } from "@/components/providers";
+import { useAuth, useLedger, useToast, usePrivacy } from "@/components/providers";
 import { Avatar, Empty, LoadingBlock, Modal, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { todayLocalDateOnly } from "@/lib/date";
 import { formatDate } from "@/lib/format";
 import type { LedgerDetail } from "@/lib/types";
 
 type InviteResult = { token: string; url: string; expiresAt: string };
 
 export default function LedgerPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const {
     ledgerId,
     ledgers,
@@ -20,12 +24,18 @@ export default function LedgerPage() {
     setDefaultLedger,
     createLedger,
     overview,
+    refresh,
   } = useLedger();
   const { toast } = useToast();
-  const { person, phone: maskPhoneValue } = usePrivacy();
+  const { person, phone: maskPhoneValue, unlocked, openUnlock } = usePrivacy();
 
   const [detail, setDetail] = useState<LedgerDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [transferTarget, setTransferTarget] = useState<LedgerDetail["members"][number] | null>(null);
+  const [transferring, setTransferring] = useState(false);
   const [invite, setInvite] = useState<InviteResult | null>(null);
   const [inviting, setInviting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -95,8 +105,70 @@ export default function LedgerPage() {
     }
   };
 
-  const owner = detail?.members.find((member) => member.role === "OWNER");
+  const exportData = async () => {
+    if (!unlocked) {
+      toast("导出包含真实金额与姓名，请先解锁隐私模式", "info");
+      openUnlock();
+      return;
+    }
+    setExporting(true);
+    try {
+      const data = await api<{ export: unknown }>("/api/v1/export", { ledgerId });
+      const blob = new Blob([JSON.stringify(data.export, null, 2)], {
+        type: "application/json;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${currentLedger?.name ?? "礼金账本"}-${todayLocalDateOnly()}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast("账本数据已导出");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "导出失败", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
 
+  const leave = async () => {
+    setLeaving(true);
+    try {
+      await api(`/api/v1/ledgers/${ledgerId}/members/me`, { method: "DELETE", ledgerId });
+      setLeaveOpen(false);
+      await refresh();
+      toast("已退出该账本");
+      router.replace("/");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "退出失败", "error");
+    } finally {
+      setLeaving(false);
+    }
+  };
+
+  const transfer = async () => {
+    if (!transferTarget) return;
+    setTransferring(true);
+    try {
+      await api(`/api/v1/ledgers/${ledgerId}/transfer`, {
+        method: "POST",
+        ledgerId,
+        body: { userId: transferTarget.userId },
+      });
+      setTransferTarget(null);
+      await load();
+      await refresh();
+      toast("管理员已转让");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "转让失败", "error");
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const owner = detail?.members.find((member) => member.role === "OWNER");
+  const isOwner = detail?.role === "OWNER";
+  const myId = user?.id ?? "";
   return (
     <div className="page">
       <div className="ledger-head">
@@ -182,9 +254,28 @@ export default function LedgerPage() {
                         {maskPhoneValue(member.phoneNumberMasked)} · 加入于 {formatDate(member.joinedAt)}
                       </div>
                     </div>
-                    <span className="caption">
-                      {member.role === "OWNER" ? "完整权限" : "可增删改"}
-                    </span>
+                    {isOwner && member.userId !== myId ? (
+                      <button
+                        type="button"
+                        className="btn btn-quiet btn-sm"
+                        onClick={() => setTransferTarget(member)}
+                      >
+                        设为管理员
+                      </button>
+                    ) : member.userId === myId && !isOwner ? (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setLeaveOpen(true)}
+                      >
+                        <Icon name="logout" size={13} />
+                        退出
+                      </button>
+                    ) : (
+                      <span className="caption">
+                        {member.role === "OWNER" ? "完整权限" : "可增删改"}
+                      </span>
+                    )}
                   </div>
                 ))
               )}
@@ -316,6 +407,17 @@ export default function LedgerPage() {
                 设为默认账本
               </button>
             ) : null}
+
+            <button
+              type="button"
+              className="btn btn-ghost btn-block btn-sm"
+              style={{ marginTop: 10 }}
+              onClick={exportData}
+              disabled={exporting}
+            >
+              {exporting ? <Spinner /> : <Icon name="download" size={14} />}
+              导出账本数据（JSON）
+            </button>
           </div>
 
           <div className="quote-card">
@@ -366,6 +468,76 @@ export default function LedgerPage() {
             onChange={(event) => setNewName(event.target.value)}
           />
           <span className="field-hint">创建后你会成为管理员，可邀请家人共同记账。</span>
+        </div>
+      </Modal>
+
+      <Modal
+        open={leaveOpen}
+        onClose={() => setLeaveOpen(false)}
+        title="退出账本"
+        subtitle={`退出「${currentLedger?.name ?? ""}」后，你将无法再查看或修改该账本的任何记录`}
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setLeaveOpen(false)}>
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary grow"
+              onClick={leave}
+              disabled={leaving}
+            >
+              {leaving ? <Spinner /> : <Icon name="logout" size={15} />}
+              确认退出
+            </button>
+          </>
+        }
+      >
+        <div className="notice">
+          <Icon name="info" size={16} style={{ flex: "none", marginTop: 1 }} />
+          <span>
+            退出后你对这个账本的记录将不再可见。如果只是想换一本记，直接在「我的账本」里切换即可，
+            不需要退出。
+          </span>
+        </div>
+      </Modal>
+
+      <Modal
+        open={transferTarget !== null}
+        onClose={() => setTransferTarget(null)}
+        title="转让管理员"
+        subtitle={
+          transferTarget
+            ? `把「${currentLedger?.name ?? ""}」的管理员转让给 ${person(transferTarget.name)}`
+            : ""
+        }
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setTransferTarget(null)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary grow"
+              onClick={transfer}
+              disabled={transferring}
+            >
+              {transferring ? <Spinner /> : <Icon name="check" size={15} />}
+              确认转让
+            </button>
+          </>
+        }
+      >
+        <div className="notice">
+          <Icon name="info" size={16} style={{ flex: "none", marginTop: 1 }} />
+          <span>
+            转让后你将成为普通记账员，对方获得完整权限（可改名、邀请成员、再次转让）。
+            这个操作不可撤销，除非对方再转回给你。
+          </span>
         </div>
       </Modal>
     </div>

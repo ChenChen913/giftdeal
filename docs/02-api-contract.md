@@ -620,15 +620,15 @@ await authClient.signOut();    // POST /api/auth/sign-out
 软删除，并在同一事务内处理结清关系：
 
 - 删除的是 **GIVEN** 且它结清过某条 RECEIVED → 目标 RECEIVED 回退为未结清
-- 删除的是 **RECEIVED** 且被某条 GIVEN 结清过 → 那条 GIVEN 的 `settledByRecordId` 置 null
+- 删除的是 **RECEIVED** 且被某条 GIVEN 结清过 → 该 RECEIVED 的 `settledByRecordId` 一并清空；GIVEN 记录保留不变
 
 出参 `200`：
 
 ```json
-{ "ok": true, "data": { "deleted": true, "revertedSettlementRecordId": "rec_a_0001" } }
+{ "ok": true, "data": { "deleted": true, "relatedRecordId": "rec_a_0001" } }
 ```
 
-无关联时 `revertedSettlementRecordId` 为 `null`。前端在删除「用于结清」的送出记录时应二次确认（提示「对应收礼将恢复为待回礼」）。
+`relatedRecordId` 是这次删除波及的另一条记录：删 GIVEN 时指向被回退的 RECEIVED；删 RECEIVED 时指向原先结清它的 GIVEN（该 GIVEN 本身不变）。无关联时为 `null`。前端在删除「用于结清」的送出记录时应二次确认（提示「对应收礼将恢复为待回礼」）。
 
 ### 7.6 POST /api/v1/records/{recordId}/settle
 
@@ -988,7 +988,56 @@ await authClient.signOut();    // POST /api/auth/sign-out
 
 ---
 
-## 13. 前端对接注意
+## 13. 成员管理与导出
+
+### 13.1 DELETE /api/v1/ledgers/{ledgerId}/members/me
+
+退出账本。需要登录，账本 ID 在路径里。
+
+- `MEMBER`：直接退出。若退出的是默认账本，`defaultLedgerId` 自动指向剩余的第一本。
+- `OWNER`：返回 `409 CONFLICT`，必须先转让管理员。
+
+```json
+{ "ok": true, "data": { "left": true } }
+```
+
+### 13.2 POST /api/v1/ledgers/{ledgerId}/transfer
+
+转让管理员，仅 `OWNER` 可调用。
+
+```json
+{ "userId": "usr_xxx" }
+```
+
+- 目标必须是本账本成员，否则 `404 NOT_FOUND`
+- 不能转让给自己，`422 VALIDATION_ERROR`
+- 并发下用条件更新抢占，只有一个请求能成功
+
+```json
+{ "ok": true, "data": { "transferred": true, "newOwnerId": "usr_xxx" } }
+```
+
+### 13.3 GET /api/v1/export
+
+导出账本全量数据。**要求隐私模式已解锁**，否则 `403 FORBIDDEN`——出参含真实姓名与金额。
+
+出参 `data.export`：
+
+| 字段 | 说明 |
+|---|---|
+| `formatVersion` | 当前为 `1` |
+| `exportedAt` | 导出时间 |
+| `ledger` | 账本基本信息 |
+| `members` | 成员（不含手机号） |
+| `contacts` | 未删除的亲友 |
+| `records` | 未删除的记录，含 `amountCents` / `amountYuan` / `sceneLabel` / `occurredAt` |
+| `plans` | 未删除的人情预备 |
+
+单次上限 20000 笔记录，超出返回 `409 CONFLICT`。
+
+---
+
+## 14. 前端对接注意
 
 1. **每个账本内请求都要带 `X-Ledger-Id`**。建议封装一个 `apiFetch(path, { ledgerId, ... })`，在拦截器里统一注入；切换账本时只改这一个状态。
 2. **切换账本后必须丢弃旧数据**。所有列表都按 `ledgerId` 隔离，不要把上一个账本的结果留在缓存里。

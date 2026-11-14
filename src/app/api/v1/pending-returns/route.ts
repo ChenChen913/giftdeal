@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const sp = new URL(req.url).searchParams;
 
     const pageNo = intParam(sp, "page", 1, 1, 10_000);
-    const pageSize = intParam(sp, "pageSize", 20, 1, 100);
+    const pageSize = intParam(sp, "pageSize", 20, 1, 500);
 
     const result = await listPendingReturns(ctx, {
       contactId: strParam(sp, "contactId"),

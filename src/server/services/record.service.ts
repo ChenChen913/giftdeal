@@ -195,22 +195,28 @@ export async function deleteRecord(ctx: LedgerContext, recordId: string) {
       },
     });
 
-    return { deleted: true, revertedSettlementRecordId: affectedRecordId };
+    return { deleted: true, relatedRecordId: affectedRecordId };
   });
 }
 
 export async function settleRecord(ctx: LedgerContext, recordId: string) {
   const record = await prisma.record.findFirst({
     where: { id: recordId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true, direction: true, settledAt: true },
+    select: { id: true, direction: true },
   });
   if (!record) throw new AppError("NOT_FOUND");
   if (record.direction !== "RECEIVED") throw new AppError("RECORD_NOT_SETTLEABLE");
-  if (record.settledAt) throw new AppError("RECORD_ALREADY_SETTLED");
 
-  const row = await prisma.record.update({
-    where: { id: recordId },
+  // 条件更新抢占：并发下只有一个请求能把 settledAt 从 null 改掉，
+  // 另一个会拿到 count=0 并得到「已结清」，而不是双双成功。
+  const claimed = await prisma.record.updateMany({
+    where: { id: recordId, ledgerId: ctx.ledgerId, deletedAt: null, settledAt: null },
     data: { settledAt: new Date(), settledByRecordId: null },
+  });
+  if (claimed.count === 0) throw new AppError("RECORD_ALREADY_SETTLED");
+
+  const row = await prisma.record.findUniqueOrThrow({
+    where: { id: recordId },
     include: recordInclude,
   });
   return recordToDto(row);

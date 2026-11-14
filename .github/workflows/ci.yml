@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # 全部指向本地 PGlite，CI 不需要外部数据库
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:55432/postgres
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:55432/postgres
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-in-production
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      SMS_PROVIDER: mock
+      OTP_ALLOW_FIXED_CODE: "true"
+      OTP_MOCK_CODE: "123456"
+      ALLOW_ADMIN_LOGIN: "true"
+      ADMIN_LOGIN_PASSWORD: "123456"
+      PRIVACY_PASSWORD: "331633"
+      ALLOW_LAN_ACCESS: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖（postinstall 会生成 Prisma 客户端）
+        run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单元测试
+        run: npm test
+
+      - name: 生产构建
+        run: npm run build
+
+      - name: 接口冒烟（起 PGlite + 生产服务）
+        run: |
+          set -e
+
+          npm run db:local &
+          DB_PID=$!
+          for i in $(seq 1 60); do
+            if (echo > /dev/tcp/127.0.0.1/55432) 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          npx prisma migrate deploy
+          npx prisma db seed
+
+          npm run start &
+          APP_PID=$!
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:3000/api/v1/health > /dev/null; then break; fi
+            sleep 1
+          done
+
+          npm run smoke
+
+          kill $APP_PID $DB_PID 2>/dev/null || true

@@ -166,7 +166,7 @@ async function main() {
   check("删除返回 200", removed.status === 200, removed.body);
   check(
     "返回被回退的收到记录 id",
-    removed.body?.data?.revertedSettlementRecordId === "rec_a_002",
+    removed.body?.data?.relatedRecordId === "rec_a_002",
     removed.body,
   );
 

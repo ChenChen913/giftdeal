@@ -21,6 +21,7 @@ export default function PendingPage() {
 
   const [items, setItems] = useState<PendingItem[]>([]);
   const [summary, setSummary] = useState({ totalCount: 0, totalCents: 0 });
+  const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortKey>("oldest");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -29,9 +30,10 @@ export default function PendingPage() {
     if (!ledgerId) return;
     setLoading(true);
     try {
-      const data = await api<PendingResult>("/api/v1/pending-returns?pageSize=100", { ledgerId });
+      const data = await api<PendingResult>("/api/v1/pending-returns?pageSize=500", { ledgerId });
       setItems(data.items);
       setSummary(data.summary);
+      setTruncated(data.total > data.items.length);
     } catch {
       // 静默失败，页面保持空态
     } finally {
@@ -118,7 +120,9 @@ export default function PendingPage() {
       <div className="card">
         <div className="card-head">
           <h2 className="section-title">待回礼明细</h2>
-          <span className="caption">{summary.totalCount} 笔</span>
+          <span className="caption">
+            {summary.totalCount} 笔{truncated ? "（仅显示前 500 笔）" : ""}
+          </span>
           <div className="tabs" style={{ marginLeft: "auto" }}>
             <button
               type="button"
