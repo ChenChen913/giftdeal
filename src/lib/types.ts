@@ -172,6 +172,8 @@ export type Overview = {
   planCount: number;
   planCents: number;
   nextPlan: Plan | null;
+  /** 已记录的人生大事数量 */
+  eventCount: number;
   sceneBreakdown: SceneBreakdownItem[];
 };
 

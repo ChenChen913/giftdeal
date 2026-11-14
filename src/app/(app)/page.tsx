@@ -292,7 +292,7 @@ export default function DashboardPage() {
         <div className="card" style={{ overflow: "hidden" }}>
           <div className="card-head">
             <h2 className="section-title">人生大事</h2>
-            <span className="caption">{events.length} 件</span>
+            <span className="caption">{overview?.eventCount ?? events.length} 件</span>
             <Link href="/events" className="btn btn-quiet btn-sm" style={{ marginLeft: "auto" }}>
               查看全部
               <Icon name="chevronRight" size={14} />

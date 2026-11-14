@@ -78,6 +78,10 @@ const CONTACTS = [
   { id: "con_a_005", ledgerId: "led_zhang", name: "孙阿姨", relationTag: "邻居" },
   { id: "con_a_006", ledgerId: "led_zhang", name: "周敏", relationTag: "朋友" },
   { id: "con_a_007", ledgerId: "led_zhang", name: "吴强", relationTag: "同事", note: "暂无往来" },
+  { id: "con_a_008", ledgerId: "led_zhang", name: "张桂兰", relationTag: "亲戚", note: "姑姑" },
+  { id: "con_a_009", ledgerId: "led_zhang", name: "李静", relationTag: "亲戚", note: "表姐" },
+  { id: "con_a_010", ledgerId: "led_zhang", name: "周浩", relationTag: "同学", note: "大学室友" },
+  { id: "con_a_011", ledgerId: "led_zhang", name: "郑海", relationTag: "同事", note: "部门领导" },
   { id: "con_b_001", ledgerId: "led_li", name: "李国强", relationTag: "亲戚" },
   { id: "con_b_002", ledgerId: "led_li", name: "郑爽", relationTag: "朋友" },
   { id: "con_b_003", ledgerId: "led_li", name: "马超", relationTag: "同事" },
@@ -96,7 +100,32 @@ type SeedRecord = {
   note?: string;
   /** 手动结清时间 */
   settledAt?: string;
+  /** 关联的人生大事 */
+  eventId?: string;
 };
+
+type SeedEvent = {
+  id: string;
+  ledgerId: string;
+  title: string;
+  scene: SeedRecord["scene"];
+  occurredAt: string;
+  location?: string;
+  note?: string;
+};
+
+/**
+ * 一条完整的人生线：2018 结婚 → 两个孩子各自的满月/百岁 → 2025 父亲白事。
+ * 每场事配 4–8 笔礼金，用来演示「以个人为中心」的时间线。
+ */
+const EVENTS: SeedEvent[] = [
+  { id: "evt_a_001", ledgerId: "led_zhang", title: "我的婚礼", scene: "WEDDING", occurredAt: "2018-05-20", location: "老家县城", note: "办了 26 桌，双方亲戚都到了" },
+  { id: "evt_a_002", ledgerId: "led_zhang", title: "长子满月", scene: "BABY_FULL_MONTH", occurredAt: "2019-08-16", location: "城南酒店", note: "8 桌，主要是至亲" },
+  { id: "evt_a_003", ledgerId: "led_zhang", title: "长子百岁", scene: "BABY_HUNDRED_DAYS", occurredAt: "2019-11-24", location: "家里", note: "只请了至亲，简单办的" },
+  { id: "evt_a_004", ledgerId: "led_zhang", title: "次女满月", scene: "BABY_FULL_MONTH", occurredAt: "2022-03-12", location: "城南酒店", note: "10 桌" },
+  { id: "evt_a_005", ledgerId: "led_zhang", title: "次女百岁", scene: "BABY_HUNDRED_DAYS", occurredAt: "2022-06-20", location: "家里", note: "只请了至亲" },
+  { id: "evt_a_006", ledgerId: "led_zhang", title: "父亲白事", scene: "FUNERAL", occurredAt: "2025-09-08", location: "老家", note: "按习俗办了三天" },
+];
 
 const RECORDS: SeedRecord[] = [
   // ---- 账本 A：张家（送出 4300 元 / 收到 4100 元 / 净差额 -200 元）----
@@ -114,6 +143,52 @@ const RECORDS: SeedRecord[] = [
   { id: "rec_a_012", ledgerId: "led_zhang", contactId: "con_a_006", direction: "RECEIVED", amountCents: 50000, scene: "OTHER", occurredAt: "2026-07-07" },
   { id: "rec_a_013", ledgerId: "led_zhang", contactId: "con_a_001", direction: "GIVEN", amountCents: 80000, scene: "WEDDING", occurredAt: "2026-01-15", note: "回礼" },
   { id: "rec_a_014", ledgerId: "led_zhang", contactId: "con_a_002", direction: "GIVEN", amountCents: 40000, scene: "BABY_FULL_MONTH", occurredAt: "2026-08-16" },
+
+  // ---- 人生大事礼金：2018 婚礼 → 两个孩子满月/百岁 → 2025 父亲白事 ----
+  // 我的婚礼 2018-05-20，收礼 8200 元
+  { id: "rec_a_101", ledgerId: "led_zhang", contactId: "con_a_001", direction: "RECEIVED", amountCents: 200000, scene: "WEDDING", occurredAt: "2018-05-20", note: "二舅随礼", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
+  { id: "rec_a_102", ledgerId: "led_zhang", contactId: "con_a_002", direction: "RECEIVED", amountCents: 120000, scene: "WEDDING", occurredAt: "2018-05-20", note: "刘芳随礼", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
+  { id: "rec_a_103", ledgerId: "led_zhang", contactId: "con_a_003", direction: "RECEIVED", amountCents: 60000, scene: "WEDDING", occurredAt: "2018-05-20", note: "同事", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
+  { id: "rec_a_104", ledgerId: "led_zhang", contactId: "con_a_004", direction: "RECEIVED", amountCents: 80000, scene: "WEDDING", occurredAt: "2018-05-20", note: "大学同学", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
+  { id: "rec_a_105", ledgerId: "led_zhang", contactId: "con_a_005", direction: "RECEIVED", amountCents: 40000, scene: "WEDDING", occurredAt: "2018-05-20", note: "邻居", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
+  { id: "rec_a_106", ledgerId: "led_zhang", contactId: "con_a_006", direction: "RECEIVED", amountCents: 60000, scene: "WEDDING", occurredAt: "2018-05-20", note: "朋友", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
+  { id: "rec_a_107", ledgerId: "led_zhang", contactId: "con_a_008", direction: "RECEIVED", amountCents: 160000, scene: "WEDDING", occurredAt: "2018-05-20", note: "姑姑", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
+  { id: "rec_a_108", ledgerId: "led_zhang", contactId: "con_a_009", direction: "RECEIVED", amountCents: 100000, scene: "WEDDING", occurredAt: "2018-05-20", note: "表姐", eventId: "evt_a_001", settledAt: "2018-06-30T02:00:00.000Z" },
+
+  // 长子满月 2019-08-16，收礼 2800 元
+  { id: "rec_a_109", ledgerId: "led_zhang", contactId: "con_a_001", direction: "RECEIVED", amountCents: 80000, scene: "BABY_FULL_MONTH", occurredAt: "2019-08-16", note: "满月酒", eventId: "evt_a_002", settledAt: "2019-09-20T02:00:00.000Z" },
+  { id: "rec_a_110", ledgerId: "led_zhang", contactId: "con_a_002", direction: "RECEIVED", amountCents: 60000, scene: "BABY_FULL_MONTH", occurredAt: "2019-08-16", note: "满月酒", eventId: "evt_a_002", settledAt: "2019-09-20T02:00:00.000Z" },
+  { id: "rec_a_111", ledgerId: "led_zhang", contactId: "con_a_005", direction: "RECEIVED", amountCents: 30000, scene: "BABY_FULL_MONTH", occurredAt: "2019-08-16", note: "邻居", eventId: "evt_a_002", settledAt: "2019-09-20T02:00:00.000Z" },
+  { id: "rec_a_112", ledgerId: "led_zhang", contactId: "con_a_008", direction: "RECEIVED", amountCents: 60000, scene: "BABY_FULL_MONTH", occurredAt: "2019-08-16", note: "姑姑", eventId: "evt_a_002", settledAt: "2019-09-20T02:00:00.000Z" },
+  { id: "rec_a_113", ledgerId: "led_zhang", contactId: "con_a_006", direction: "RECEIVED", amountCents: 50000, scene: "BABY_FULL_MONTH", occurredAt: "2019-08-16", note: "朋友", eventId: "evt_a_002", settledAt: "2019-09-20T02:00:00.000Z" },
+
+  // 长子百岁 2019-11-24，收礼 1700 元
+  { id: "rec_a_114", ledgerId: "led_zhang", contactId: "con_a_001", direction: "RECEIVED", amountCents: 50000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2019-11-24", note: "百岁", eventId: "evt_a_003", settledAt: "2019-12-30T02:00:00.000Z" },
+  { id: "rec_a_115", ledgerId: "led_zhang", contactId: "con_a_002", direction: "RECEIVED", amountCents: 40000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2019-11-24", note: "百岁", eventId: "evt_a_003", settledAt: "2019-12-30T02:00:00.000Z" },
+  { id: "rec_a_116", ledgerId: "led_zhang", contactId: "con_a_008", direction: "RECEIVED", amountCents: 50000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2019-11-24", note: "姑姑", eventId: "evt_a_003", settledAt: "2019-12-30T02:00:00.000Z" },
+  { id: "rec_a_117", ledgerId: "led_zhang", contactId: "con_a_009", direction: "RECEIVED", amountCents: 30000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2019-11-24", note: "表姐", eventId: "evt_a_003", settledAt: "2019-12-30T02:00:00.000Z" },
+
+  // 次女满月 2022-03-12，收礼 2900 元
+  { id: "rec_a_118", ledgerId: "led_zhang", contactId: "con_a_001", direction: "RECEIVED", amountCents: 80000, scene: "BABY_FULL_MONTH", occurredAt: "2022-03-12", note: "满月酒", eventId: "evt_a_004", settledAt: "2022-04-20T02:00:00.000Z" },
+  { id: "rec_a_119", ledgerId: "led_zhang", contactId: "con_a_002", direction: "RECEIVED", amountCents: 60000, scene: "BABY_FULL_MONTH", occurredAt: "2022-03-12", note: "满月酒", eventId: "evt_a_004", settledAt: "2022-04-20T02:00:00.000Z" },
+  { id: "rec_a_120", ledgerId: "led_zhang", contactId: "con_a_003", direction: "RECEIVED", amountCents: 40000, scene: "BABY_FULL_MONTH", occurredAt: "2022-03-12", note: "同事", eventId: "evt_a_004", settledAt: "2022-04-20T02:00:00.000Z" },
+  { id: "rec_a_121", ledgerId: "led_zhang", contactId: "con_a_008", direction: "RECEIVED", amountCents: 60000, scene: "BABY_FULL_MONTH", occurredAt: "2022-03-12", note: "姑姑", eventId: "evt_a_004", settledAt: "2022-04-20T02:00:00.000Z" },
+  { id: "rec_a_122", ledgerId: "led_zhang", contactId: "con_a_010", direction: "RECEIVED", amountCents: 50000, scene: "BABY_FULL_MONTH", occurredAt: "2022-03-12", note: "大学室友", eventId: "evt_a_004", settledAt: "2022-04-20T02:00:00.000Z" },
+
+  // 次女百岁 2022-06-20，收礼 1700 元
+  { id: "rec_a_123", ledgerId: "led_zhang", contactId: "con_a_001", direction: "RECEIVED", amountCents: 50000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2022-06-20", note: "百岁", eventId: "evt_a_005", settledAt: "2022-07-30T02:00:00.000Z" },
+  { id: "rec_a_124", ledgerId: "led_zhang", contactId: "con_a_002", direction: "RECEIVED", amountCents: 40000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2022-06-20", note: "百岁", eventId: "evt_a_005", settledAt: "2022-07-30T02:00:00.000Z" },
+  { id: "rec_a_125", ledgerId: "led_zhang", contactId: "con_a_008", direction: "RECEIVED", amountCents: 50000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2022-06-20", note: "姑姑", eventId: "evt_a_005", settledAt: "2022-07-30T02:00:00.000Z" },
+  { id: "rec_a_126", ledgerId: "led_zhang", contactId: "con_a_009", direction: "RECEIVED", amountCents: 30000, scene: "BABY_HUNDRED_DAYS", occurredAt: "2022-06-20", note: "表姐", eventId: "evt_a_005", settledAt: "2022-07-30T02:00:00.000Z" },
+
+  // 父亲白事 2025-09-08，收礼 4700 元
+  { id: "rec_a_127", ledgerId: "led_zhang", contactId: "con_a_001", direction: "RECEIVED", amountCents: 100000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "白事", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
+  { id: "rec_a_128", ledgerId: "led_zhang", contactId: "con_a_002", direction: "RECEIVED", amountCents: 80000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "白事", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
+  { id: "rec_a_129", ledgerId: "led_zhang", contactId: "con_a_003", direction: "RECEIVED", amountCents: 50000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "同事", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
+  { id: "rec_a_130", ledgerId: "led_zhang", contactId: "con_a_004", direction: "RECEIVED", amountCents: 60000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "同学", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
+  { id: "rec_a_131", ledgerId: "led_zhang", contactId: "con_a_005", direction: "RECEIVED", amountCents: 30000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "邻居", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
+  { id: "rec_a_132", ledgerId: "led_zhang", contactId: "con_a_008", direction: "RECEIVED", amountCents: 100000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "姑姑", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
+  { id: "rec_a_133", ledgerId: "led_zhang", contactId: "con_a_006", direction: "RECEIVED", amountCents: 50000, scene: "FUNERAL", occurredAt: "2025-09-08", note: "朋友", eventId: "evt_a_006", settledAt: "2025-10-20T02:00:00.000Z" },
 
   // ---- 账本 B：李家（送出 3400 元 / 收到 4400 元 / 净差额 +1000 元）----
   { id: "rec_b_001", ledgerId: "led_li", contactId: "con_b_001", direction: "RECEIVED", amountCents: 200000, scene: "WEDDING", occurredAt: "2025-06-06" },
@@ -317,6 +392,31 @@ async function seed() {
     });
   }
 
+  // 人生大事要在记录之前建好，记录才能引用它
+  for (const event of EVENTS) {
+    await prisma.lifeEvent.upsert({
+      where: { id: event.id },
+      create: {
+        id: event.id,
+        ledgerId: event.ledgerId,
+        title: event.title,
+        scene: event.scene,
+        occurredAt: toDate(event.occurredAt),
+        location: event.location ?? null,
+        note: event.note ?? null,
+        hosted: true,
+      },
+      update: {
+        title: event.title,
+        scene: event.scene,
+        occurredAt: toDate(event.occurredAt),
+        location: event.location ?? null,
+        note: event.note ?? null,
+        deletedAt: null,
+      },
+    });
+  }
+
   // 第一遍：只写记录本身，不带结清外键（避免引用尚未写入的行）
   for (const record of RECORDS) {
     await prisma.record.upsert({
@@ -332,6 +432,7 @@ async function seed() {
         note: record.note ?? null,
         settledAt: record.settledAt ? new Date(record.settledAt) : null,
         createdById: record.ledgerId === "led_zhang" ? "usr_demo_a" : "usr_demo_b",
+        eventId: record.eventId ?? null,
       },
       update: {
         contactId: record.contactId,
@@ -343,6 +444,7 @@ async function seed() {
         settledAt: record.settledAt ? new Date(record.settledAt) : null,
         deletedAt: null,
         settledByRecordId: null,
+        eventId: record.eventId ?? null,
       },
     });
   }
@@ -386,71 +488,6 @@ async function seed() {
       },
     });
   }
-
-  // 演示：两场人生大事，并把对应场景的收礼挂上去
-  const EVENT_SEEDS = [
-    {
-      id: "evt_a_001",
-      ledgerId: "led_zhang",
-      title: "我的婚礼",
-      scene: "WEDDING" as const,
-      occurredAt: "2025-05-20",
-      location: "老家县城",
-      note: "办了 20 桌，主要是双方亲戚",
-    },
-    {
-      id: "evt_a_002",
-      ledgerId: "led_zhang",
-      title: "小女满月",
-      scene: "BABY_FULL_MONTH" as const,
-      occurredAt: "2026-08-16",
-      location: "城南酒店",
-      note: "只请了至亲，办了 6 桌",
-    },
-  ];
-
-  for (const event of EVENT_SEEDS) {
-    await prisma.lifeEvent.upsert({
-      where: { id: event.id },
-      create: {
-        id: event.id,
-        ledgerId: event.ledgerId,
-        title: event.title,
-        scene: event.scene,
-        occurredAt: toDate(event.occurredAt),
-        location: event.location,
-        note: event.note,
-        hosted: true,
-      },
-      update: {
-        title: event.title,
-        scene: event.scene,
-        occurredAt: toDate(event.occurredAt),
-        location: event.location,
-        note: event.note,
-        deletedAt: null,
-      },
-    });
-  }
-
-  await prisma.record.updateMany({
-    where: {
-      ledgerId: "led_zhang",
-      direction: "RECEIVED",
-      scene: "WEDDING",
-      deletedAt: null,
-    },
-    data: { eventId: "evt_a_001" },
-  });
-  await prisma.record.updateMany({
-    where: {
-      ledgerId: "led_zhang",
-      direction: "RECEIVED",
-      scene: "BABY_FULL_MONTH",
-      deletedAt: null,
-    },
-    data: { eventId: "evt_a_002" },
-  });
 
   for (const invite of INVITES) {
     await prisma.invite.upsert({

@@ -98,9 +98,10 @@ async function main() {
 
   const overview = await call("GET", "/api/v1/overview", { ledgerId });
   check("汇总：送出 430000 分", overview.body?.data?.givenTotalCents === 430000, overview.body);
-  check("汇总：收到 410000 分", overview.body?.data?.receivedTotalCents === 410000, overview.body);
-  check("汇总：净差额 -20000 分", overview.body?.data?.netCents === -20000, overview.body);
+  check("汇总：收到 2610000 分", overview.body?.data?.receivedTotalCents === 2610000, overview.body);
+  check("汇总：净差额 2180000 分", overview.body?.data?.netCents === 2180000, overview.body);
   check("汇总：待回礼 5 笔", overview.body?.data?.pendingReturnCount === 5, overview.body);
+  check("汇总：人生大事 6 件", overview.body?.data?.eventCount === 6, overview.body);
 
   // ---------- 3. 联系人 ----------
   section("3. 联系人搜索与 CRUD");
@@ -109,7 +110,7 @@ async function main() {
   check("命中王建国", search.body?.data?.items?.[0]?.name === "王建国", search.body?.data?.items);
 
   const wang = search.body?.data?.items?.[0];
-  check("王建国净差额 +50000 分", wang?.stats?.netCents === 50000, wang?.stats);
+  check("王建国净差额 +610000 分", wang?.stats?.netCents === 610000, wang?.stats);
 
   const created = await call("POST", "/api/v1/contacts", {
     ledgerId,
@@ -131,9 +132,9 @@ async function main() {
   section("4. 按人对账");
   const settlement = await call("GET", "/api/v1/contacts/con_a_001/settlement", { ledgerId });
   check("对账返回 200", settlement.status === 200, settlement.body);
-  check("王建国收到 130000 分", settlement.body?.data?.summary?.receivedTotalCents === 130000);
-  check("王建国净差额 50000 分", settlement.body?.data?.summary?.netCents === 50000);
-  check("流水 3 条", settlement.body?.data?.records?.length === 3, settlement.body?.data?.records);
+  check("王建国收到 690000 分", settlement.body?.data?.summary?.receivedTotalCents === 690000);
+  check("王建国净差额 610000 分", settlement.body?.data?.summary?.netCents === 610000);
+  check("流水 9 条", settlement.body?.data?.records?.length === 9, settlement.body?.data?.records);
 
   // ---------- 5. 记录 + 关联结清 ----------
   section("5. 新建记录并关联结清");

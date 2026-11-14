@@ -99,8 +99,17 @@ export async function contactStatsMap(
 export async function getOverview(ledgerId: string) {
   const base = { ledgerId, deletedAt: null };
 
-  const [contactCount, recordCount, given, received, pending, scenes, planSummary, upcoming] =
-    await Promise.all([
+  const [
+    contactCount,
+    recordCount,
+    given,
+    received,
+    pending,
+    scenes,
+    planSummary,
+    upcoming,
+    eventCount,
+  ] = await Promise.all([
     prisma.contact.count({ where: { ledgerId, deletedAt: null } }),
     prisma.record.count({ where: base }),
     prisma.record.aggregate({
@@ -126,6 +135,7 @@ export async function getOverview(ledgerId: string) {
     }),
     getPlanSummary(ledgerId),
     getUpcomingPlans(ledgerId, 1),
+    prisma.lifeEvent.count({ where: { ledgerId, deletedAt: null } }),
   ]);
 
   const givenTotalCents = given._sum.amountCents ?? 0;
@@ -154,6 +164,7 @@ export async function getOverview(ledgerId: string) {
     planCount: planSummary.planCount,
     planCents: planSummary.planCents,
     nextPlan: upcoming[0] ?? null,
+    eventCount,
     sceneBreakdown,
   };
 }
