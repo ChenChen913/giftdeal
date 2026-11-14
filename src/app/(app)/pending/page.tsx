@@ -200,7 +200,7 @@ export default function PendingPage() {
                     })
                   }
                 >
-                  <Icon name="edit" size={13} />
+                  <Icon name="arrowRight" size={13} />
                   去记一笔还礼
                 </button>
               </div>

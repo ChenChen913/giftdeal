@@ -8,6 +8,7 @@ import type { Contact, RecordItem, SettlementResponse } from "@/lib/types";
 import { Icon } from "./icons";
 import { useLedger, useToast, usePrivacy } from "./providers";
 import { useRecordDialog } from "./record-dialog";
+import { RecordDeleteDialog, RecordEditDialog } from "./record-edit-dialog";
 import { Avatar, Empty, LoadingBlock, Modal, Spinner } from "./ui";
 
 export function ContactDetail({ contactId }: { contactId: string }) {
@@ -22,6 +23,8 @@ export function ContactDetail({ contactId }: { contactId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<RecordItem | null>(null);
+  const [deleting, setDeleting] = useState<RecordItem | null>(null);
 
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({ name: "", relationTag: "", phone: "", note: "" });
@@ -284,32 +287,57 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                       </span>
                     </div>
 
-                    {record.direction === "RECEIVED" && !record.isSettled ? (
-                      <div className="row" style={{ marginTop: 8, gap: 8 }}>
+                    <div className="row" style={{ marginTop: 8, gap: 8 }}>
+                      {record.direction === "RECEIVED" && !record.isSettled ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            disabled={busyId === record.id}
+                            onClick={() => settle(record)}
+                          >
+                            {busyId === record.id ? <Spinner /> : <Icon name="check" size={13} />}
+                            标记已还
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-quiet btn-sm"
+                            onClick={() =>
+                              openRecord({
+                                direction: "GIVEN",
+                                contactId,
+                                settlesRecordId: record.id,
+                              })
+                            }
+                          >
+                            去记一笔还礼
+                          </button>
+                        </>
+                      ) : null}
+
+                      <div className="row" style={{ marginLeft: "auto", gap: 2 }}>
                         <button
                           type="button"
-                          className="btn btn-ghost btn-sm"
-                          disabled={busyId === record.id}
-                          onClick={() => settle(record)}
+                          className="icon-btn"
+                          style={{ width: 28, height: 28 }}
+                          title="编辑这笔礼金"
+                          aria-label="编辑这笔礼金"
+                          onClick={() => setEditing(record)}
                         >
-                          {busyId === record.id ? <Spinner /> : <Icon name="check" size={13} />}
-                          标记已还
+                          <Icon name="edit" size={14} />
                         </button>
                         <button
                           type="button"
-                          className="btn btn-quiet btn-sm"
-                          onClick={() =>
-                            openRecord({
-                              direction: "GIVEN",
-                              contactId,
-                              settlesRecordId: record.id,
-                            })
-                          }
+                          className="icon-btn"
+                          style={{ width: 28, height: 28 }}
+                          title="删除这笔礼金"
+                          aria-label="删除这笔礼金"
+                          onClick={() => setDeleting(record)}
                         >
-                          去记一笔还礼
+                          <Icon name="trash" size={14} />
                         </button>
                       </div>
-                    ) : null}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -377,6 +405,20 @@ export function ContactDetail({ contactId }: { contactId: string }) {
           />
         </div>
       </Modal>
+
+      <RecordEditDialog
+        record={editing}
+        ledgerId={ledgerId ?? ""}
+        onClose={() => setEditing(null)}
+        onChanged={() => void load()}
+      />
+
+      <RecordDeleteDialog
+        record={deleting}
+        ledgerId={ledgerId ?? ""}
+        onClose={() => setDeleting(null)}
+        onChanged={() => void load()}
+      />
     </div>
   );
 }
