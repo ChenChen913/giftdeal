@@ -67,6 +67,12 @@ export function Modal({
 }) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
+  /** onClose 每次渲染都是新函数，存进 ref，避免它把焦点 effect 反复触发 */
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -80,12 +86,15 @@ export function Modal({
       );
 
     // 初始焦点落在弹窗容器上：既把焦点从背后页面移进来，
-    // 又不会在移动端一打开就弹出输入法键盘
-    node?.focus();
+    // 又不会在移动端一打开就弹出输入法键盘。
+    // 已经在弹窗内（比如正在输入）就不要再抢，否则每敲一个字都会失焦。
+    if (node && !node.contains(document.activeElement)) {
+      node.focus();
+    }
 
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -120,7 +129,7 @@ export function Modal({
       // 关闭后把焦点还给触发弹窗的那个元素
       previousActive?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
