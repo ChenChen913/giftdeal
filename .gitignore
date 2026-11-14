@@ -1,8 +1,18 @@
 node_modules/
 .next/
+.next-dev/
 out/
 build/
 dist/
+
+# Cloudflare / OpenNext 构建产物
+.open-next/
+.wrangler/
+cloudflare-env.d.ts
+
+# 本地 wrangler 变量
+.dev.vars
+.dev.vars.*
 
 # 生成产物（build 时由 prisma generate 生成）
 src/generated/
@@ -24,3 +34,4 @@ next-env.d.ts
 # 工作区本地记忆 / 会话产物，不进版本库
 .workbuddy-ai/
 .shots/
+.next-demo/

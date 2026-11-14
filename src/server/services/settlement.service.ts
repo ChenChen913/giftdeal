@@ -1,20 +1,30 @@
+import { and, count, eq, gte, isNull, lte, max, min, sql, sum } from "drizzle-orm";
+
 import { LIMITS } from "@/lib/constants";
 import { daysSince, parseDateOnly, toDateOnly } from "@/lib/date";
 
-import { prisma } from "@/server/db";
+import { db } from "@/server/db-drizzle";
 import type { LedgerContext } from "@/server/guards/ledger";
 import { AppError } from "@/server/http/errors";
 import type { SettlementSummary } from "@/server/mappers/contact.mapper";
-import { recordInclude, recordToDto } from "@/server/mappers/record.mapper";
+import { recordToDto } from "@/server/mappers/record.mapper";
+import { contact, record } from "@/server/schema";
 
-function occurredAtFilter(from?: string, to?: string) {
-  if (!from && !to) return {};
-  return {
-    occurredAt: {
-      ...(from ? { gte: parseDateOnly(from) } : {}),
-      ...(to ? { lte: parseDateOnly(to) } : {}),
-    },
-  };
+const recordWith = {
+  contact: { columns: { id: true, name: true, relationTag: true } },
+  settledRecord: { columns: { id: true } },
+} as const;
+
+function toCents(value: string | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  return typeof value === "number" ? value : Number(value);
+}
+
+function occurredAtConditions(from?: string, to?: string) {
+  const parts = [];
+  if (from) parts.push(gte(record.occurredAt, parseDateOnly(from)));
+  if (to) parts.push(lte(record.occurredAt, parseDateOnly(to)));
+  return parts;
 }
 
 /** 按人对账：全部双向流水 + 净差额（实时聚合，不落库） */
@@ -23,39 +33,45 @@ export async function getContactSettlement(
   contactId: string,
   range: { from?: string; to?: string } = {},
 ) {
-  const contact = await prisma.contact.findFirst({
-    where: { id: contactId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true, name: true, relationTag: true },
-  });
-  if (!contact) throw new AppError("NOT_FOUND");
+  const contactRows = await db
+    .select({ id: contact.id, name: contact.name, relationTag: contact.relationTag })
+    .from(contact)
+    .where(
+      and(eq(contact.id, contactId), eq(contact.ledgerId, ctx.ledgerId), isNull(contact.deletedAt)),
+    )
+    .limit(1);
+  const contactRow = contactRows[0];
+  if (!contactRow) throw new AppError("NOT_FOUND");
 
-  const where = {
-    ledgerId: ctx.ledgerId,
-    contactId,
-    deletedAt: null,
-    ...occurredAtFilter(range.from, range.to),
-  };
+  const where = and(
+    eq(record.ledgerId, ctx.ledgerId),
+    eq(record.contactId, contactId),
+    isNull(record.deletedAt),
+    ...occurredAtConditions(range.from, range.to),
+  );
 
   const [rows, grouped, unsettled] = await Promise.all([
-    prisma.record.findMany({
+    db.query.record.findMany({
       where,
-      include: recordInclude,
-      orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
-      take: LIMITS.settlementRecordsMax + 1,
+      with: recordWith,
+      orderBy: [sql`${record.occurredAt} DESC`, sql`${record.createdAt} DESC`],
+      limit: LIMITS.settlementRecordsMax + 1,
     }),
-    prisma.record.groupBy({
-      by: ["direction"],
-      where,
-      _sum: { amountCents: true },
-      _count: { _all: true },
-      _min: { occurredAt: true },
-      _max: { occurredAt: true },
-    }),
-    prisma.record.aggregate({
-      where: { ...where, direction: "RECEIVED", settledAt: null },
-      _sum: { amountCents: true },
-      _count: { _all: true },
-    }),
+    db
+      .select({
+        direction: record.direction,
+        total: sum(record.amountCents),
+        n: count(),
+        first: min(record.occurredAt),
+        last: max(record.occurredAt),
+      })
+      .from(record)
+      .where(where)
+      .groupBy(record.direction),
+    db
+      .select({ total: sum(record.amountCents), n: count() })
+      .from(record)
+      .where(and(where, eq(record.direction, "RECEIVED"), isNull(record.settledAt))),
   ]);
 
   const truncated = rows.length > LIMITS.settlementRecordsMax;
@@ -69,21 +85,21 @@ export async function getContactSettlement(
   let lastOccurredAt: string | null = null;
 
   for (const row of grouped) {
-    const sum = row._sum.amountCents ?? 0;
+    const total = toCents(row.total);
     if (row.direction === "GIVEN") {
-      givenTotalCents = sum;
-      givenCount = row._count._all;
+      givenTotalCents = total;
+      givenCount = Number(row.n);
     } else {
-      receivedTotalCents = sum;
-      receivedCount = row._count._all;
+      receivedTotalCents = total;
+      receivedCount = Number(row.n);
     }
 
-    if (row._min.occurredAt) {
-      const day = toDateOnly(row._min.occurredAt);
+    if (row.first) {
+      const day = toDateOnly(row.first);
       if (!firstOccurredAt || day < firstOccurredAt) firstOccurredAt = day;
     }
-    if (row._max.occurredAt) {
-      const day = toDateOnly(row._max.occurredAt);
+    if (row.last) {
+      const day = toDateOnly(row.last);
       if (!lastOccurredAt || day > lastOccurredAt) lastOccurredAt = day;
     }
   }
@@ -95,13 +111,13 @@ export async function getContactSettlement(
     recordCount: givenCount + receivedCount,
     givenCount,
     receivedCount,
-    unsettledReceivedCount: unsettled._count._all,
-    unsettledReceivedCents: unsettled._sum.amountCents ?? 0,
+    unsettledReceivedCount: Number(unsettled[0]?.n ?? 0),
+    unsettledReceivedCents: toCents(unsettled[0]?.total),
     firstOccurredAt,
     lastOccurredAt,
   };
 
-  return { contact, summary, records, truncated };
+  return { contact: contactRow, summary, records, truncated };
 }
 
 /** 待回礼：收到且未结清，拖得最久的排最前 */
@@ -109,36 +125,33 @@ export async function listPendingReturns(
   ctx: LedgerContext,
   input: { contactId?: string; page: number; pageSize: number },
 ) {
-  const where = {
-    ledgerId: ctx.ledgerId,
-    deletedAt: null,
-    direction: "RECEIVED" as const,
-    settledAt: null,
-    ...(input.contactId ? { contactId: input.contactId } : {}),
-  };
+  const conditions = [
+    eq(record.ledgerId, ctx.ledgerId),
+    isNull(record.deletedAt),
+    eq(record.direction, "RECEIVED"),
+    isNull(record.settledAt),
+  ];
+  if (input.contactId) conditions.push(eq(record.contactId, input.contactId));
+  const where = and(...conditions);
 
-  const [total, rows, aggregate] = await Promise.all([
-    prisma.record.count({ where }),
-    prisma.record.findMany({
+  const [totalRows, rows, aggregate] = await Promise.all([
+    db.select({ n: count() }).from(record).where(where),
+    db.query.record.findMany({
       where,
-      include: recordInclude,
-      orderBy: [{ occurredAt: "asc" }, { createdAt: "asc" }],
-      skip: (input.page - 1) * input.pageSize,
-      take: input.pageSize,
+      with: recordWith,
+      orderBy: [sql`${record.occurredAt} ASC`, sql`${record.createdAt} ASC`],
+      offset: (input.page - 1) * input.pageSize,
+      limit: input.pageSize,
     }),
-    prisma.record.aggregate({
-      where,
-      _sum: { amountCents: true },
-      _count: { _all: true },
-    }),
+    db.select({ total: sum(record.amountCents), n: count() }).from(record).where(where),
   ]);
 
   return {
     items: rows.map((row) => ({ ...recordToDto(row), daysSince: daysSince(row.occurredAt) })),
-    total,
+    total: Number(totalRows[0]?.n ?? 0),
     summary: {
-      totalCount: aggregate._count._all,
-      totalCents: aggregate._sum.amountCents ?? 0,
+      totalCount: Number(aggregate[0]?.n ?? 0),
+      totalCents: toCents(aggregate[0]?.total),
     },
   };
 }

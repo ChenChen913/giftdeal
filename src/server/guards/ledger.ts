@@ -1,7 +1,10 @@
+import { and, count, eq } from "drizzle-orm";
+
 import type { MembershipRole } from "@/lib/constants";
 
-import { prisma } from "@/server/db";
+import { db } from "@/server/db-drizzle";
 import { AppError } from "@/server/http/errors";
+import { ledger, membership } from "@/server/schema";
 import { requireSession } from "./session";
 
 export type LedgerContext = {
@@ -40,17 +43,24 @@ export async function requireLedgerById(
 }
 
 async function assertMembership(userId: string, ledgerId: string): Promise<LedgerContext> {
-  const membership = await prisma.membership.findUnique({
-    where: { ledgerId_userId: { ledgerId, userId } },
-    select: { role: true },
-  });
+  const rows = await db
+    .select({ role: membership.role })
+    .from(membership)
+    .where(and(eq(membership.ledgerId, ledgerId), eq(membership.userId, userId)))
+    .limit(1);
 
-  if (membership) {
-    return { userId, ledgerId, role: membership.role as MembershipRole };
+  if (rows.length > 0) {
+    return { userId, ledgerId, role: rows[0].role as MembershipRole };
   }
 
-  const ledgerExists = await prisma.ledger.count({ where: { id: ledgerId } });
-  throw ledgerExists ? new AppError("LEDGER_FORBIDDEN") : new AppError("LEDGER_NOT_FOUND");
+  const ledgerRows = await db
+    .select({ n: count() })
+    .from(ledger)
+    .where(eq(ledger.id, ledgerId));
+
+  throw Number(ledgerRows[0]?.n ?? 0) > 0
+    ? new AppError("LEDGER_FORBIDDEN")
+    : new AppError("LEDGER_NOT_FOUND");
 }
 
 export function requireOwner(ctx: LedgerContext): void {

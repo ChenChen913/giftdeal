@@ -1,10 +1,13 @@
+import { and, count, desc, eq, inArray, isNull, max, sum } from "drizzle-orm";
+
 import { SCENE_LABELS, type GiftScene } from "@/lib/constants";
 import { parseDateOnly, toDateOnly } from "@/lib/date";
 
-import { prisma } from "@/server/db";
+import { db } from "@/server/db-drizzle";
 import type { LedgerContext } from "@/server/guards/ledger";
 import { AppError } from "@/server/http/errors";
-import { recordInclude, recordToDto } from "@/server/mappers/record.mapper";
+import { recordToDto } from "@/server/mappers/record.mapper";
+import { lifeEvent, record } from "@/server/schema";
 import type { CreateEventInput, UpdateEventInput } from "@/server/validators/event";
 
 export type EventSummary = {
@@ -33,18 +36,15 @@ export type EventDto = {
   summary: EventSummary;
 };
 
-type EventRow = {
-  id: string;
-  ledgerId: string;
-  title: string;
-  scene: string;
-  occurredAt: Date;
-  location: string | null;
-  note: string | null;
-  hosted: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
+const recordWith = {
+  contact: { columns: { id: true, name: true, relationTag: true } },
+  settledRecord: { columns: { id: true } },
+} as const;
+
+function toCents(value: string | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  return typeof value === "number" ? value : Number(value);
+}
 
 function emptySummary(): EventSummary {
   return {
@@ -57,7 +57,21 @@ function emptySummary(): EventSummary {
   };
 }
 
-function toDto(row: EventRow, summary: EventSummary): EventDto {
+function toDto(
+  row: {
+    id: string;
+    ledgerId: string;
+    title: string;
+    scene: string;
+    occurredAt: Date;
+    location: string | null;
+    note: string | null;
+    hosted: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+  summary: EventSummary,
+): EventDto {
   return {
     id: row.id,
     ledgerId: row.ledgerId,
@@ -83,36 +97,51 @@ async function summaryMap(ledgerId: string, eventIds: string[]) {
   for (const id of eventIds) result.set(id, emptySummary());
   if (eventIds.length === 0) return result;
 
-  const grouped = await prisma.record.groupBy({
-    by: ["eventId", "direction"],
-    where: { ledgerId, eventId: { in: eventIds }, deletedAt: null },
-    _sum: { amountCents: true },
-    _count: { _all: true },
-    _max: { amountCents: true },
-  });
+  const grouped = await db
+    .select({
+      eventId: record.eventId,
+      direction: record.direction,
+      total: sum(record.amountCents),
+      n: count(),
+      maxAmount: max(record.amountCents),
+    })
+    .from(record)
+    .where(
+      and(
+        eq(record.ledgerId, ledgerId),
+        inArray(record.eventId, eventIds),
+        isNull(record.deletedAt),
+      ),
+    )
+    .groupBy(record.eventId, record.direction);
 
   for (const row of grouped) {
     if (!row.eventId) continue;
     const summary = result.get(row.eventId);
     if (!summary) continue;
 
-    const sum = row._sum.amountCents ?? 0;
-    summary.recordCount += row._count._all;
+    const total = toCents(row.total);
+    summary.recordCount += Number(row.n);
 
     if (row.direction === "GIVEN") {
-      summary.givenTotalCents += sum;
+      summary.givenTotalCents += total;
     } else {
-      summary.receivedTotalCents += sum;
-      summary.maxReceivedCents = Math.max(summary.maxReceivedCents, row._max.amountCents ?? 0);
+      summary.receivedTotalCents += total;
+      summary.maxReceivedCents = Math.max(summary.maxReceivedCents, Number(row.maxAmount ?? 0));
     }
   }
 
   // 参与人数需要按 (eventId, contactId) 去重，groupBy 不支持 distinct count
-  const participants = await prisma.record.findMany({
-    where: { ledgerId, eventId: { in: eventIds }, deletedAt: null },
-    select: { eventId: true, contactId: true },
-    distinct: ["eventId", "contactId"],
-  });
+  const participants = await db
+    .selectDistinct({ eventId: record.eventId, contactId: record.contactId })
+    .from(record)
+    .where(
+      and(
+        eq(record.ledgerId, ledgerId),
+        inArray(record.eventId, eventIds),
+        isNull(record.deletedAt),
+      ),
+    );
 
   for (const row of participants) {
     if (!row.eventId) continue;
@@ -131,16 +160,17 @@ export async function listEvents(
   ctx: LedgerContext,
   input: { page: number; pageSize: number },
 ) {
-  const where = { ledgerId: ctx.ledgerId, deletedAt: null };
+  const where = and(eq(lifeEvent.ledgerId, ctx.ledgerId), isNull(lifeEvent.deletedAt));
 
-  const [total, rows] = await prisma.$transaction([
-    prisma.lifeEvent.count({ where }),
-    prisma.lifeEvent.findMany({
-      where,
-      orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
-      skip: (input.page - 1) * input.pageSize,
-      take: input.pageSize,
-    }),
+  const [totalRows, rows] = await Promise.all([
+    db.select({ n: count() }).from(lifeEvent).where(where),
+    db
+      .select()
+      .from(lifeEvent)
+      .where(where)
+      .orderBy(desc(lifeEvent.occurredAt), desc(lifeEvent.createdAt))
+      .offset((input.page - 1) * input.pageSize)
+      .limit(input.pageSize),
   ]);
 
   const summaries = await summaryMap(
@@ -150,35 +180,48 @@ export async function listEvents(
 
   return {
     items: rows.map((row) => toDto(row, summaries.get(row.id) ?? emptySummary())),
-    total,
+    total: Number(totalRows[0]?.n ?? 0),
   };
 }
 
 export async function getEventDetail(ctx: LedgerContext, eventId: string) {
-  const event = await prisma.lifeEvent.findFirst({
-    where: { id: eventId, ledgerId: ctx.ledgerId, deletedAt: null },
-  });
+  const eventRows = await db
+    .select()
+    .from(lifeEvent)
+    .where(
+      and(
+        eq(lifeEvent.id, eventId),
+        eq(lifeEvent.ledgerId, ctx.ledgerId),
+        isNull(lifeEvent.deletedAt),
+      ),
+    )
+    .limit(1);
+  const event = eventRows[0];
   if (!event) throw new AppError("NOT_FOUND");
 
-  const records = await prisma.record.findMany({
-    where: { ledgerId: ctx.ledgerId, eventId, deletedAt: null },
-    include: recordInclude,
-    orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+  const records = await db.query.record.findMany({
+    where: and(
+      eq(record.ledgerId, ctx.ledgerId),
+      eq(record.eventId, eventId),
+      isNull(record.deletedAt),
+    ),
+    with: recordWith,
+    orderBy: [desc(record.occurredAt), desc(record.createdAt)],
   });
 
   const summary = emptySummary();
   summary.recordCount = records.length;
-  const contacts = new Set<string>();
-  for (const record of records) {
-    contacts.add(record.contactId);
-    if (record.direction === "GIVEN") {
-      summary.givenTotalCents += record.amountCents;
+  const contactIds = new Set<string>();
+  for (const r of records) {
+    contactIds.add(r.contactId);
+    if (r.direction === "GIVEN") {
+      summary.givenTotalCents += r.amountCents;
     } else {
-      summary.receivedTotalCents += record.amountCents;
-      summary.maxReceivedCents = Math.max(summary.maxReceivedCents, record.amountCents);
+      summary.receivedTotalCents += r.amountCents;
+      summary.maxReceivedCents = Math.max(summary.maxReceivedCents, r.amountCents);
     }
   }
-  summary.participantCount = contacts.size;
+  summary.participantCount = contactIds.size;
   summary.netCents = summary.receivedTotalCents - summary.givenTotalCents;
 
   return {
@@ -188,8 +231,10 @@ export async function getEventDetail(ctx: LedgerContext, eventId: string) {
 }
 
 export async function createEvent(ctx: LedgerContext, input: CreateEventInput) {
-  const row = await prisma.lifeEvent.create({
-    data: {
+  const inserted = await db
+    .insert(lifeEvent)
+    .values({
+      id: crypto.randomUUID(),
       ledgerId: ctx.ledgerId,
       title: input.title,
       scene: input.scene,
@@ -197,10 +242,10 @@ export async function createEvent(ctx: LedgerContext, input: CreateEventInput) {
       location: input.location ?? null,
       note: input.note ?? null,
       hosted: input.hosted ?? true,
-    },
-  });
+    })
+    .returning();
 
-  return toDto(row, emptySummary());
+  return toDto(inserted[0], emptySummary());
 }
 
 export async function updateEvent(
@@ -208,15 +253,22 @@ export async function updateEvent(
   eventId: string,
   input: UpdateEventInput,
 ) {
-  const existing = await prisma.lifeEvent.findFirst({
-    where: { id: eventId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!existing) throw new AppError("NOT_FOUND");
+  const existing = await db
+    .select({ id: lifeEvent.id })
+    .from(lifeEvent)
+    .where(
+      and(
+        eq(lifeEvent.id, eventId),
+        eq(lifeEvent.ledgerId, ctx.ledgerId),
+        isNull(lifeEvent.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (existing.length === 0) throw new AppError("NOT_FOUND");
 
-  const row = await prisma.lifeEvent.update({
-    where: { id: eventId },
-    data: {
+  const updated = await db
+    .update(lifeEvent)
+    .set({
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.scene !== undefined ? { scene: input.scene } : {}),
       ...(input.occurredAt !== undefined
@@ -225,31 +277,41 @@ export async function updateEvent(
       ...(input.location !== undefined ? { location: input.location } : {}),
       ...(input.note !== undefined ? { note: input.note } : {}),
       ...(input.hosted !== undefined ? { hosted: input.hosted } : {}),
-    },
-  });
+      updatedAt: new Date(),
+    })
+    .where(eq(lifeEvent.id, eventId))
+    .returning();
 
   const summary = (await summaryMap(ctx.ledgerId, [eventId])).get(eventId) ?? emptySummary();
-  return toDto(row, summary);
+  return toDto(updated[0], summary);
 }
 
 /** 软删事件：礼金记录本身保留，只是解除关联 */
 export async function deleteEvent(ctx: LedgerContext, eventId: string) {
-  const existing = await prisma.lifeEvent.findFirst({
-    where: { id: eventId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true },
+  const existing = await db
+    .select({ id: lifeEvent.id })
+    .from(lifeEvent)
+    .where(
+      and(
+        eq(lifeEvent.id, eventId),
+        eq(lifeEvent.ledgerId, ctx.ledgerId),
+        isNull(lifeEvent.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (existing.length === 0) throw new AppError("NOT_FOUND");
+
+  const detached = await db.transaction(async (tx) => {
+    await tx
+      .update(lifeEvent)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(lifeEvent.id, eventId));
+    return tx
+      .update(record)
+      .set({ eventId: null, updatedAt: new Date() })
+      .where(and(eq(record.ledgerId, ctx.ledgerId), eq(record.eventId, eventId)))
+      .returning({ id: record.id });
   });
-  if (!existing) throw new AppError("NOT_FOUND");
 
-  const [, detached] = await prisma.$transaction([
-    prisma.lifeEvent.update({
-      where: { id: eventId },
-      data: { deletedAt: new Date() },
-    }),
-    prisma.record.updateMany({
-      where: { ledgerId: ctx.ledgerId, eventId },
-      data: { eventId: null },
-    }),
-  ]);
-
-  return { deleted: true, detachedRecordCount: detached.count };
+  return { deleted: true, detachedRecordCount: detached.length };
 }

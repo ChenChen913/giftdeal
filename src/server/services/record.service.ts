@@ -1,10 +1,13 @@
+import { and, count, eq, gte, isNull, isNotNull, lte, sql } from "drizzle-orm";
+
 import type { GiftScene, RecordDirection } from "@/lib/constants";
 import { parseDateOnly } from "@/lib/date";
 
-import { prisma } from "@/server/db";
+import { db } from "@/server/db-drizzle";
 import type { LedgerContext } from "@/server/guards/ledger";
 import { AppError } from "@/server/http/errors";
-import { recordInclude, recordToDto } from "@/server/mappers/record.mapper";
+import { recordToDto } from "@/server/mappers/record.mapper";
+import { contact, lifeEvent, record } from "@/server/schema";
 import type { CreateRecordInput, UpdateRecordInput } from "@/server/validators/record";
 
 export type RecordFilters = {
@@ -18,6 +21,17 @@ export type RecordFilters = {
   pageSize: number;
 };
 
+/** 与 Prisma 的 recordInclude 等价：contact 三字段 + 被结清记录 id */
+const recordWith = {
+  contact: { columns: { id: true, name: true, relationTag: true } },
+  settledRecord: { columns: { id: true } },
+} as const;
+
+/** Prisma 的 @default(cuid()) 是客户端生成，数据库无默认值 */
+function newId(): string {
+  return crypto.randomUUID();
+}
+
 export async function listRecords(ctx: LedgerContext, filters: RecordFilters) {
   let direction = filters.direction;
 
@@ -29,64 +43,75 @@ export async function listRecords(ctx: LedgerContext, filters: RecordFilters) {
     direction = "RECEIVED";
   }
 
-  const where = {
-    ledgerId: ctx.ledgerId,
-    deletedAt: null,
-    ...(filters.contactId ? { contactId: filters.contactId } : {}),
-    ...(direction ? { direction } : {}),
-    ...(filters.scene ? { scene: filters.scene } : {}),
-    ...(filters.settled !== undefined
-      ? { settledAt: filters.settled ? { not: null } : null }
-      : {}),
-    ...(filters.from || filters.to
-      ? {
-          occurredAt: {
-            ...(filters.from ? { gte: parseDateOnly(filters.from) } : {}),
-            ...(filters.to ? { lte: parseDateOnly(filters.to) } : {}),
-          },
-        }
-      : {}),
-  };
+  const conditions = [eq(record.ledgerId, ctx.ledgerId), isNull(record.deletedAt)];
+  if (filters.contactId) conditions.push(eq(record.contactId, filters.contactId));
+  if (direction) conditions.push(eq(record.direction, direction));
+  if (filters.scene) conditions.push(eq(record.scene, filters.scene));
+  if (filters.settled !== undefined) {
+    conditions.push(filters.settled ? isNotNull(record.settledAt) : isNull(record.settledAt));
+  }
+  if (filters.from) conditions.push(gte(record.occurredAt, parseDateOnly(filters.from)));
+  if (filters.to) conditions.push(lte(record.occurredAt, parseDateOnly(filters.to)));
 
-  const [total, rows] = await prisma.$transaction([
-    prisma.record.count({ where }),
-    prisma.record.findMany({
+  const where = and(...conditions);
+
+  const [totalRows, rows] = await Promise.all([
+    db.select({ n: count() }).from(record).where(where),
+    db.query.record.findMany({
       where,
-      include: recordInclude,
-      orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
-      skip: (filters.page - 1) * filters.pageSize,
-      take: filters.pageSize,
+      with: recordWith,
+      orderBy: [sql`${record.occurredAt} DESC`, sql`${record.createdAt} DESC`],
+      offset: (filters.page - 1) * filters.pageSize,
+      limit: filters.pageSize,
     }),
   ]);
 
-  return { items: rows.map(recordToDto), total };
+  return { items: rows.map(recordToDto), total: Number(totalRows[0]?.n ?? 0) };
 }
 
 export async function getRecord(ctx: LedgerContext, recordId: string) {
-  const row = await prisma.record.findFirst({
-    where: { id: recordId, ledgerId: ctx.ledgerId, deletedAt: null },
-    include: recordInclude,
+  const row = await db.query.record.findFirst({
+    where: and(
+      eq(record.id, recordId),
+      eq(record.ledgerId, ctx.ledgerId),
+      isNull(record.deletedAt),
+    ),
+    with: recordWith,
   });
   if (!row) throw new AppError("NOT_FOUND");
   return recordToDto(row);
 }
 
 export async function createRecord(ctx: LedgerContext, input: CreateRecordInput) {
-  const contact = await prisma.contact.findFirst({
-    where: { id: input.contactId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!contact) throw new AppError("NOT_FOUND");
+  const contactRows = await db
+    .select({ id: contact.id })
+    .from(contact)
+    .where(
+      and(
+        eq(contact.id, input.contactId),
+        eq(contact.ledgerId, ctx.ledgerId),
+        isNull(contact.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (contactRows.length === 0) throw new AppError("NOT_FOUND");
 
   // 事件必须属于本账本，避免把记录挂到别人的事件上
   let eventId: string | null = null;
   if (input.eventId) {
-    const event = await prisma.lifeEvent.findFirst({
-      where: { id: input.eventId, ledgerId: ctx.ledgerId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!event) throw new AppError("NOT_FOUND", undefined, "关联的事件不存在");
-    eventId = event.id;
+    const eventRows = await db
+      .select({ id: lifeEvent.id })
+      .from(lifeEvent)
+      .where(
+        and(
+          eq(lifeEvent.id, input.eventId),
+          eq(lifeEvent.ledgerId, ctx.ledgerId),
+          isNull(lifeEvent.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (eventRows.length === 0) throw new AppError("NOT_FOUND", undefined, "关联的事件不存在");
+    eventId = eventRows[0].id;
   }
 
   const baseData = {
@@ -103,21 +128,31 @@ export async function createRecord(ctx: LedgerContext, input: CreateRecordInput)
 
   // 场景一：不关联结清（含「创建即已结清」的补录）
   if (!input.settlesRecordId) {
-    const row = await prisma.record.create({
-      data: {
+    const inserted = await db
+      .insert(record)
+      .values({
+        id: newId(),
         ...baseData,
         ...(input.direction === "RECEIVED" && input.settled ? { settledAt: new Date() } : {}),
-      },
-      include: recordInclude,
+      })
+      .returning({ id: record.id });
+
+    const row = await db.query.record.findFirst({
+      where: eq(record.id, inserted[0].id),
+      with: recordWith,
     });
-    return { record: recordToDto(row), settledRecord: null };
+    return { record: recordToDto(row!), settledRecord: null };
   }
 
   // 场景二：送出记录关联结清一条收到记录（同一事务）
-  return prisma.$transaction(async (tx) => {
-    const target = await tx.record.findFirst({
-      where: { id: input.settlesRecordId, ledgerId: ctx.ledgerId, deletedAt: null },
-      include: recordInclude,
+  return db.transaction(async (tx) => {
+    const target = await tx.query.record.findFirst({
+      where: and(
+        eq(record.id, input.settlesRecordId!),
+        eq(record.ledgerId, ctx.ledgerId),
+        isNull(record.deletedAt),
+      ),
+      with: recordWith,
     });
 
     if (!target) throw new AppError("SETTLE_TARGET_INVALID");
@@ -125,21 +160,27 @@ export async function createRecord(ctx: LedgerContext, input: CreateRecordInput)
     if (target.settledAt) throw new AppError("RECORD_ALREADY_SETTLED");
     if (target.contactId !== input.contactId) throw new AppError("SETTLE_TARGET_INVALID");
 
-    const created = await tx.record.create({ data: baseData, include: recordInclude });
+    const createdId = newId();
+    await tx.insert(record).values({ id: createdId, ...baseData });
 
-    // 用 updateMany + settledAt 条件抢占，避免并发重复结清
-    const claimed = await tx.record.updateMany({
-      where: { id: target.id, settledAt: null, deletedAt: null },
-      data: { settledAt: new Date(), settledByRecordId: created.id },
+    // 用 settledAt 条件抢占，避免并发重复结清
+    const claimed = await tx
+      .update(record)
+      .set({ settledAt: new Date(), settledByRecordId: createdId, updatedAt: new Date() })
+      .where(and(eq(record.id, target.id), isNull(record.settledAt), isNull(record.deletedAt)))
+      .returning({ id: record.id });
+    if (claimed.length === 0) throw new AppError("RECORD_ALREADY_SETTLED");
+
+    const created = await tx.query.record.findFirst({
+      where: eq(record.id, createdId),
+      with: recordWith,
     });
-    if (claimed.count === 0) throw new AppError("RECORD_ALREADY_SETTLED");
-
-    const settled = await tx.record.findUniqueOrThrow({
-      where: { id: target.id },
-      include: recordInclude,
+    const settled = await tx.query.record.findFirst({
+      where: eq(record.id, target.id),
+      with: recordWith,
     });
 
-    return { record: recordToDto(created), settledRecord: recordToDto(settled) };
+    return { record: recordToDto(created!), settledRecord: recordToDto(settled!) };
   });
 }
 
@@ -148,23 +189,31 @@ export async function updateRecord(
   recordId: string,
   input: UpdateRecordInput,
 ) {
-  const existing = await prisma.record.findFirst({
-    where: { id: recordId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!existing) throw new AppError("NOT_FOUND");
+  const existing = await db
+    .select({ id: record.id })
+    .from(record)
+    .where(and(eq(record.id, recordId), eq(record.ledgerId, ctx.ledgerId), isNull(record.deletedAt)))
+    .limit(1);
+  if (existing.length === 0) throw new AppError("NOT_FOUND");
 
   if (input.eventId) {
-    const event = await prisma.lifeEvent.findFirst({
-      where: { id: input.eventId, ledgerId: ctx.ledgerId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!event) throw new AppError("NOT_FOUND", undefined, "关联的事件不存在");
+    const eventRows = await db
+      .select({ id: lifeEvent.id })
+      .from(lifeEvent)
+      .where(
+        and(
+          eq(lifeEvent.id, input.eventId),
+          eq(lifeEvent.ledgerId, ctx.ledgerId),
+          isNull(lifeEvent.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (eventRows.length === 0) throw new AppError("NOT_FOUND", undefined, "关联的事件不存在");
   }
 
-  const row = await prisma.record.update({
-    where: { id: recordId },
-    data: {
+  await db
+    .update(record)
+    .set({
       ...(input.amountCents !== undefined ? { amountCents: input.amountCents } : {}),
       ...(input.scene !== undefined ? { scene: input.scene } : {}),
       ...(input.occurredAt !== undefined
@@ -172,90 +221,114 @@ export async function updateRecord(
         : {}),
       ...(input.note !== undefined ? { note: input.note } : {}),
       ...(input.eventId !== undefined ? { eventId: input.eventId } : {}),
-    },
-    include: recordInclude,
-  });
+      updatedAt: new Date(),
+    })
+    .where(eq(record.id, recordId));
 
-  return recordToDto(row);
+  const row = await db.query.record.findFirst({
+    where: eq(record.id, recordId),
+    with: recordWith,
+  });
+  return recordToDto(row!);
 }
 
 /** 软删除记录，并在同一事务里维护结清关系 */
 export async function deleteRecord(ctx: LedgerContext, recordId: string) {
-  return prisma.$transaction(async (tx) => {
-    const record = await tx.record.findFirst({
-      where: { id: recordId, ledgerId: ctx.ledgerId, deletedAt: null },
-      include: { settledRecord: { select: { id: true } } },
+  return db.transaction(async (tx) => {
+    const target = await tx.query.record.findFirst({
+      where: and(
+        eq(record.id, recordId),
+        eq(record.ledgerId, ctx.ledgerId),
+        isNull(record.deletedAt),
+      ),
+      with: { settledRecord: { columns: { id: true } } },
     });
-    if (!record) throw new AppError("NOT_FOUND");
+    if (!target) throw new AppError("NOT_FOUND");
 
     const now = new Date();
     let affectedRecordId: string | null = null;
 
-    if (record.direction === "GIVEN" && record.settledRecord) {
+    if (target.direction === "GIVEN" && target.settledRecord) {
       // 删掉用于结清的送出记录 → 目标收礼回退为未结清
-      affectedRecordId = record.settledRecord.id;
-      await tx.record.update({
-        where: { id: affectedRecordId },
-        data: { settledAt: null, settledByRecordId: null },
-      });
+      affectedRecordId = target.settledRecord.id;
+      await tx
+        .update(record)
+        .set({ settledAt: null, settledByRecordId: null, updatedAt: now })
+        .where(eq(record.id, affectedRecordId));
     }
 
-    if (record.direction === "RECEIVED" && record.settledByRecordId) {
+    if (target.direction === "RECEIVED" && target.settledByRecordId) {
       // 删掉被结清的收礼记录 → 断开送出记录的反向引用
-      affectedRecordId = record.settledByRecordId;
+      affectedRecordId = target.settledByRecordId;
     }
 
-    await tx.record.update({
-      where: { id: recordId },
-      data: {
+    await tx
+      .update(record)
+      .set({
         deletedAt: now,
+        updatedAt: now,
         // 收到记录自身携带结清外键，软删时一并清空，避免反向关系指向已删数据
-        ...(record.direction === "RECEIVED"
+        ...(target.direction === "RECEIVED"
           ? { settledAt: null, settledByRecordId: null }
           : {}),
-      },
-    });
+      })
+      .where(eq(record.id, recordId));
 
     return { deleted: true, relatedRecordId: affectedRecordId };
   });
 }
 
 export async function settleRecord(ctx: LedgerContext, recordId: string) {
-  const record = await prisma.record.findFirst({
-    where: { id: recordId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true, direction: true },
-  });
-  if (!record) throw new AppError("NOT_FOUND");
-  if (record.direction !== "RECEIVED") throw new AppError("RECORD_NOT_SETTLEABLE");
+  const rows = await db
+    .select({ id: record.id, direction: record.direction })
+    .from(record)
+    .where(and(eq(record.id, recordId), eq(record.ledgerId, ctx.ledgerId), isNull(record.deletedAt)))
+    .limit(1);
+  const target = rows[0];
+  if (!target) throw new AppError("NOT_FOUND");
+  if (target.direction !== "RECEIVED") throw new AppError("RECORD_NOT_SETTLEABLE");
 
-  // 条件更新抢占：并发下只有一个请求能把 settledAt 从 null 改掉，
-  // 另一个会拿到 count=0 并得到「已结清」，而不是双双成功。
-  const claimed = await prisma.record.updateMany({
-    where: { id: recordId, ledgerId: ctx.ledgerId, deletedAt: null, settledAt: null },
-    data: { settledAt: new Date(), settledByRecordId: null },
-  });
-  if (claimed.count === 0) throw new AppError("RECORD_ALREADY_SETTLED");
+  // 条件更新抢占：并发下只有一个请求能把 settledAt 从 null 改掉
+  const claimed = await db
+    .update(record)
+    .set({ settledAt: new Date(), settledByRecordId: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(record.id, recordId),
+        eq(record.ledgerId, ctx.ledgerId),
+        isNull(record.deletedAt),
+        isNull(record.settledAt),
+      ),
+    )
+    .returning({ id: record.id });
+  if (claimed.length === 0) throw new AppError("RECORD_ALREADY_SETTLED");
 
-  const row = await prisma.record.findUniqueOrThrow({
-    where: { id: recordId },
-    include: recordInclude,
+  const row = await db.query.record.findFirst({
+    where: eq(record.id, recordId),
+    with: recordWith,
   });
-  return recordToDto(row);
+  return recordToDto(row!);
 }
 
 export async function unsettleRecord(ctx: LedgerContext, recordId: string) {
-  const record = await prisma.record.findFirst({
-    where: { id: recordId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true, direction: true, settledAt: true },
-  });
-  if (!record) throw new AppError("NOT_FOUND");
-  if (record.direction !== "RECEIVED") throw new AppError("RECORD_NOT_SETTLEABLE");
-  if (!record.settledAt) throw new AppError("RECORD_NOT_SETTLED");
+  const rows = await db
+    .select({ id: record.id, direction: record.direction, settledAt: record.settledAt })
+    .from(record)
+    .where(and(eq(record.id, recordId), eq(record.ledgerId, ctx.ledgerId), isNull(record.deletedAt)))
+    .limit(1);
+  const target = rows[0];
+  if (!target) throw new AppError("NOT_FOUND");
+  if (target.direction !== "RECEIVED") throw new AppError("RECORD_NOT_SETTLEABLE");
+  if (!target.settledAt) throw new AppError("RECORD_NOT_SETTLED");
 
-  const row = await prisma.record.update({
-    where: { id: recordId },
-    data: { settledAt: null, settledByRecordId: null },
-    include: recordInclude,
+  await db
+    .update(record)
+    .set({ settledAt: null, settledByRecordId: null, updatedAt: new Date() })
+    .where(eq(record.id, recordId));
+
+  const row = await db.query.record.findFirst({
+    where: eq(record.id, recordId),
+    with: recordWith,
   });
-  return recordToDto(row);
+  return recordToDto(row!);
 }

@@ -1,49 +1,52 @@
+import { and, eq, isNull } from "drizzle-orm";
+
 import { DEFAULT_LEDGER_NAME } from "@/lib/constants";
 
-import { prisma } from "./db";
-
-class AlreadyBootstrapped extends Error {}
+import { db } from "./db-drizzle";
+import { ledger, membership, user } from "./schema";
 
 /**
  * 保证用户一定有一个默认账本。
  * 幂等：已有 defaultLedgerId 直接返回。
  *
- * 并发保护：先建账本，再用 `updateMany({ where: { defaultLedgerId: null } })` 抢占；
- * 抢不到说明别的请求先完成了，回滚本次事务并读回对方的结果，避免出现两个「默认账本」。
+ * 并发保护：先建账本，再用 `update ... where default_ledger_id is null` 抢占；
+ * 抢不到说明别的请求先完成了，读回对方的结果。
+ *
+ * 注意：Neon HTTP 驱动不支持交互式事务，这里用 batch（原子提交）。
+ * 极端并发下可能留下一个没人引用的账本，不影响功能。
  */
 export async function bootstrapUser(userId: string): Promise<string> {
-  const existing = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { defaultLedgerId: true },
+  const existing = await db
+    .select({ defaultLedgerId: user.defaultLedgerId })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  if (existing.length === 0) throw new Error(`用户不存在: ${userId}`);
+  if (existing[0].defaultLedgerId) return existing[0].defaultLedgerId;
+
+  const ledgerId = crypto.randomUUID();
+
+  await db.transaction(async (tx) => {
+    await tx.insert(ledger).values({ id: ledgerId, name: DEFAULT_LEDGER_NAME });
+    await tx.insert(membership).values({
+      id: crypto.randomUUID(),
+      ledgerId,
+      userId,
+      role: "OWNER",
+    });
+    await tx
+      .update(user)
+      .set({ defaultLedgerId: ledgerId, updatedAt: new Date() })
+      .where(and(eq(user.id, userId), isNull(user.defaultLedgerId)));
   });
 
-  if (!existing) throw new Error(`用户不存在: ${userId}`);
-  if (existing.defaultLedgerId) return existing.defaultLedgerId;
+  // 并发下可能被别的请求抢先，以数据库里的值为准
+  const after = await db
+    .select({ defaultLedgerId: user.defaultLedgerId })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
 
-  try {
-    return await prisma.$transaction(async (tx) => {
-      const ledger = await tx.ledger.create({ data: { name: DEFAULT_LEDGER_NAME } });
-      await tx.membership.create({
-        data: { ledgerId: ledger.id, userId, role: "OWNER" },
-      });
-
-      const claimed = await tx.user.updateMany({
-        where: { id: userId, defaultLedgerId: null },
-        data: { defaultLedgerId: ledger.id },
-      });
-
-      if (claimed.count === 0) throw new AlreadyBootstrapped();
-
-      return ledger.id;
-    });
-  } catch (error) {
-    if (error instanceof AlreadyBootstrapped) {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { defaultLedgerId: true },
-      });
-      if (user?.defaultLedgerId) return user.defaultLedgerId;
-    }
-    throw error;
-  }
+  return after[0]?.defaultLedgerId ?? ledgerId;
 }

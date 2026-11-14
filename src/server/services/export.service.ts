@@ -1,10 +1,13 @@
+import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
+
 import { SCENE_LABELS, type GiftScene } from "@/lib/constants";
 import { toDateOnly } from "@/lib/date";
 import { centsToYuan } from "@/lib/money";
 
-import { prisma } from "@/server/db";
+import { db } from "@/server/db-drizzle";
 import type { LedgerContext } from "@/server/guards/ledger";
 import { AppError } from "@/server/http/errors";
+import { contact, giftPlan, ledger as ledgerTable, membership, record } from "@/server/schema";
 
 /** 单次导出上限：防止一个超大账本把服务端内存打爆 */
 const MAX_EXPORT_RECORDS = 20_000;
@@ -16,30 +19,41 @@ const MAX_EXPORT_RECORDS = 20_000;
  * 调用方必须先确认隐私模式已解锁——这里含真实姓名与金额。
  */
 export async function exportLedger(ctx: LedgerContext) {
-  const where = { ledgerId: ctx.ledgerId, deletedAt: null };
+  const where = and(eq(record.ledgerId, ctx.ledgerId), isNull(record.deletedAt));
+  const contactWhere = and(eq(contact.ledgerId, ctx.ledgerId), isNull(contact.deletedAt));
+  const planWhere = and(eq(giftPlan.ledgerId, ctx.ledgerId), isNull(giftPlan.deletedAt));
 
-  const [ledger, memberships, contacts, records, recordCount, plans] = await Promise.all([
-    prisma.ledger.findUnique({
-      where: { id: ctx.ledgerId },
-      select: { id: true, name: true, createdAt: true },
+  const [ledgerRows, memberships, contacts, records, recordCountRows, plans] = await Promise.all([
+    db
+      .select({ id: ledgerTable.id, name: ledgerTable.name, createdAt: ledgerTable.createdAt })
+      .from(ledgerTable)
+      .where(eq(ledgerTable.id, ctx.ledgerId))
+      .limit(1),
+    db.query.membership.findMany({
+      where: eq(membership.ledgerId, ctx.ledgerId),
+      with: { user: { columns: { id: true, name: true } } },
+      orderBy: [asc(membership.joinedAt)],
     }),
-    prisma.membership.findMany({
-      where: { ledgerId: ctx.ledgerId },
-      include: { user: { select: { id: true, name: true } } },
-      orderBy: { joinedAt: "asc" },
+    db.query.contact.findMany({
+      where: contactWhere,
+      orderBy: [asc(contact.name)],
     }),
-    prisma.contact.findMany({ where, orderBy: { name: "asc" } }),
-    prisma.record.findMany({
+    db.query.record.findMany({
       where,
-      orderBy: [{ occurredAt: "asc" }, { createdAt: "asc" }],
-      take: MAX_EXPORT_RECORDS,
+      orderBy: [asc(record.occurredAt), asc(record.createdAt)],
+      limit: MAX_EXPORT_RECORDS,
     }),
-    prisma.record.count({ where }),
-    prisma.giftPlan.findMany({ where, orderBy: { expectedAt: "asc" } }),
+    db.select({ n: count() }).from(record).where(where),
+    db.query.giftPlan.findMany({
+      where: planWhere,
+      orderBy: [asc(giftPlan.expectedAt)],
+    }),
   ]);
 
+  const ledger = ledgerRows[0];
   if (!ledger) throw new AppError("LEDGER_NOT_FOUND");
 
+  const recordCount = Number(recordCountRows[0]?.n ?? 0);
   if (recordCount > MAX_EXPORT_RECORDS) {
     throw new AppError(
       "CONFLICT",
@@ -48,7 +62,7 @@ export async function exportLedger(ctx: LedgerContext) {
     );
   }
 
-  const contactName = new Map(contacts.map((contact) => [contact.id, contact.name]));
+  const contactName = new Map(contacts.map((c) => [c.id, c.name]));
   const sceneLabel = (scene: string) => SCENE_LABELS[scene as GiftScene] ?? scene;
 
   return {
@@ -59,51 +73,51 @@ export async function exportLedger(ctx: LedgerContext) {
       name: ledger.name,
       createdAt: ledger.createdAt.toISOString(),
     },
-    members: memberships.map((membership) => ({
-      userId: membership.user.id,
-      name: membership.user.name,
-      role: membership.role,
-      joinedAt: membership.joinedAt.toISOString(),
+    members: memberships.map((m) => ({
+      userId: m.user.id,
+      name: m.user.name,
+      role: m.role,
+      joinedAt: m.joinedAt.toISOString(),
     })),
-    contacts: contacts.map((contact) => ({
-      id: contact.id,
-      name: contact.name,
-      relationTag: contact.relationTag,
-      phone: contact.phone,
-      note: contact.note,
-      createdAt: contact.createdAt.toISOString(),
-      updatedAt: contact.updatedAt.toISOString(),
+    contacts: contacts.map((c) => ({
+      id: c.id,
+      name: c.name,
+      relationTag: c.relationTag,
+      phone: c.phone,
+      note: c.note,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
     })),
-    records: records.map((record) => ({
-      id: record.id,
-      contactId: record.contactId,
-      contactName: contactName.get(record.contactId) ?? null,
-      direction: record.direction,
-      directionLabel: record.direction === "GIVEN" ? "送出" : "收到",
-      amountCents: record.amountCents,
-      amountYuan: centsToYuan(record.amountCents),
-      scene: record.scene,
-      sceneLabel: sceneLabel(record.scene),
-      occurredAt: toDateOnly(record.occurredAt),
-      note: record.note,
-      settledAt: record.settledAt ? record.settledAt.toISOString() : null,
-      settledByRecordId: record.settledByRecordId,
-      createdAt: record.createdAt.toISOString(),
+    records: records.map((r) => ({
+      id: r.id,
+      contactId: r.contactId,
+      contactName: contactName.get(r.contactId) ?? null,
+      direction: r.direction,
+      directionLabel: r.direction === "GIVEN" ? "送出" : "收到",
+      amountCents: r.amountCents,
+      amountYuan: centsToYuan(r.amountCents),
+      scene: r.scene,
+      sceneLabel: sceneLabel(r.scene),
+      occurredAt: toDateOnly(r.occurredAt),
+      note: r.note,
+      settledAt: r.settledAt ? r.settledAt.toISOString() : null,
+      settledByRecordId: r.settledByRecordId,
+      createdAt: r.createdAt.toISOString(),
     })),
-    plans: plans.map((plan) => ({
-      id: plan.id,
-      contactId: plan.contactId,
-      contactName: contactName.get(plan.contactId) ?? null,
-      direction: plan.direction,
-      scene: plan.scene,
-      sceneLabel: sceneLabel(plan.scene),
-      plannedCents: plan.plannedCents,
-      plannedYuan: centsToYuan(plan.plannedCents),
-      expectedAt: toDateOnly(plan.expectedAt),
-      status: plan.status,
-      note: plan.note,
-      recordId: plan.recordId,
-      completedAt: plan.completedAt ? plan.completedAt.toISOString() : null,
+    plans: plans.map((p) => ({
+      id: p.id,
+      contactId: p.contactId,
+      contactName: contactName.get(p.contactId) ?? null,
+      direction: p.direction,
+      scene: p.scene,
+      sceneLabel: sceneLabel(p.scene),
+      plannedCents: p.plannedCents,
+      plannedYuan: centsToYuan(p.plannedCents),
+      expectedAt: toDateOnly(p.expectedAt),
+      status: p.status,
+      note: p.note,
+      recordId: p.recordId,
+      completedAt: p.completedAt ? p.completedAt.toISOString() : null,
     })),
   };
 }

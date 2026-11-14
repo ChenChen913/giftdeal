@@ -1,11 +1,14 @@
+import { and, count, eq, ilike, isNull, ne } from "drizzle-orm";
+
 import { AppError, isUniqueConstraintError } from "@/server/http/errors";
 import {
   contactToDto,
   emptyContactStats,
   type ContactDto,
 } from "@/server/mappers/contact.mapper";
-import { prisma } from "@/server/db";
+import { db } from "@/server/db-drizzle";
 import type { LedgerContext } from "@/server/guards/ledger";
+import { contact, record } from "@/server/schema";
 import type { CreateContactInput, UpdateContactInput } from "@/server/validators/contact";
 import { contactStatsMap } from "./stats.service";
 
@@ -21,39 +24,43 @@ function duplicateNameError() {
   return new AppError("CONTACT_NAME_DUPLICATE");
 }
 
+/** Prisma 的 @default(cuid()) 是客户端生成，数据库没有默认值，插入时需显式给 id */
+function newId(): string {
+  return crypto.randomUUID();
+}
+
 async function assertNameAvailable(
   ledgerId: string,
   name: string,
   excludeContactId?: string,
 ): Promise<void> {
-  const existing = await prisma.contact.findFirst({
-    where: {
-      ledgerId,
-      name,
-      deletedAt: null,
-      ...(excludeContactId ? { id: { not: excludeContactId } } : {}),
-    },
-    select: { id: true },
-  });
-  if (existing) throw duplicateNameError();
+  const conditions = [eq(contact.ledgerId, ledgerId), eq(contact.name, name), isNull(contact.deletedAt)];
+  if (excludeContactId) conditions.push(ne(contact.id, excludeContactId));
+
+  const existing = await db
+    .select({ id: contact.id })
+    .from(contact)
+    .where(and(...conditions))
+    .limit(1);
+  if (existing.length > 0) throw duplicateNameError();
 }
 
 export async function listContacts(
   ctx: LedgerContext,
   input: { q?: string; sort: "recent" | "name"; page: number; pageSize: number },
 ) {
-  const where = {
-    ledgerId: ctx.ledgerId,
-    deletedAt: null,
-    ...(input.q ? { name: { contains: input.q, mode: "insensitive" as const } } : {}),
-  };
+  const conditions = [eq(contact.ledgerId, ctx.ledgerId), isNull(contact.deletedAt)];
+  if (input.q) conditions.push(ilike(contact.name, `%${input.q}%`));
+  const where = and(...conditions);
 
   // 排序依赖 stats（最近往来时间），无法在数据库层完成，先取一批再内存排序分页。
   // total 用独立的 count 拿真实值，避免扫描上限把「共多少位」也一起截断。
-  const [total, rows] = await Promise.all([
-    prisma.contact.count({ where }),
-    prisma.contact.findMany({ where, take: MAX_CONTACTS_SCAN }),
+  const [totalRows, rows] = await Promise.all([
+    db.select({ n: count() }).from(contact).where(where),
+    db.select().from(contact).where(where).limit(MAX_CONTACTS_SCAN),
   ]);
+  const total = Number(totalRows[0]?.n ?? 0);
+
   const statsMap = await contactStatsMap(
     ctx.ledgerId,
     rows.map((row) => row.id),
@@ -78,9 +85,14 @@ export async function listContacts(
 }
 
 export async function getContact(ctx: LedgerContext, contactId: string): Promise<ContactDto> {
-  const row = await prisma.contact.findFirst({
-    where: { id: contactId, ledgerId: ctx.ledgerId, deletedAt: null },
-  });
+  const rows = await db
+    .select()
+    .from(contact)
+    .where(
+      and(eq(contact.id, contactId), eq(contact.ledgerId, ctx.ledgerId), isNull(contact.deletedAt)),
+    )
+    .limit(1);
+  const row = rows[0];
   if (!row) throw new AppError("NOT_FOUND");
 
   const statsMap = await contactStatsMap(ctx.ledgerId, [row.id]);
@@ -94,16 +106,18 @@ export async function createContact(
   await assertNameAvailable(ctx.ledgerId, input.name);
 
   try {
-    const row = await prisma.contact.create({
-      data: {
+    const inserted = await db
+      .insert(contact)
+      .values({
+        id: newId(),
         ledgerId: ctx.ledgerId,
         name: input.name,
         relationTag: input.relationTag ?? null,
         phone: input.phone ?? null,
         note: input.note ?? null,
-      },
-    });
-    return contactToDto(row, emptyContactStats());
+      })
+      .returning();
+    return contactToDto(inserted[0], emptyContactStats());
   } catch (error) {
     // 并发下部分唯一索引兜底
     if (isUniqueConstraintError(error)) throw duplicateNameError();
@@ -116,27 +130,33 @@ export async function updateContact(
   contactId: string,
   input: UpdateContactInput,
 ): Promise<ContactDto> {
-  const existing = await prisma.contact.findFirst({
-    where: { id: contactId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!existing) throw new AppError("NOT_FOUND");
+  const existing = await db
+    .select({ id: contact.id })
+    .from(contact)
+    .where(
+      and(eq(contact.id, contactId), eq(contact.ledgerId, ctx.ledgerId), isNull(contact.deletedAt)),
+    )
+    .limit(1);
+  if (existing.length === 0) throw new AppError("NOT_FOUND");
 
   if (input.name !== undefined) {
     await assertNameAvailable(ctx.ledgerId, input.name, contactId);
   }
 
   try {
-    const row = await prisma.contact.update({
-      where: { id: contactId },
-      data: {
+    const updated = await db
+      .update(contact)
+      .set({
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.relationTag !== undefined ? { relationTag: input.relationTag } : {}),
         ...(input.phone !== undefined ? { phone: input.phone } : {}),
         ...(input.note !== undefined ? { note: input.note } : {}),
-      },
-    });
+        updatedAt: new Date(),
+      })
+      .where(eq(contact.id, contactId))
+      .returning();
 
+    const row = updated[0];
     const statsMap = await contactStatsMap(ctx.ledgerId, [row.id]);
     return contactToDto(row, statsMap.get(row.id) ?? emptyContactStats());
   } catch (error) {
@@ -147,21 +167,28 @@ export async function updateContact(
 
 /** 软删除联系人：其礼金记录全部保留，仍计入账本统计与按人对账 */
 export async function deleteContact(ctx: LedgerContext, contactId: string) {
-  const existing = await prisma.contact.findFirst({
-    where: { id: contactId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true },
+  const existing = await db
+    .select({ id: contact.id })
+    .from(contact)
+    .where(
+      and(eq(contact.id, contactId), eq(contact.ledgerId, ctx.ledgerId), isNull(contact.deletedAt)),
+    )
+    .limit(1);
+  if (existing.length === 0) throw new AppError("NOT_FOUND");
+
+  // 同一事务里完成软删与计数，避免读到中间状态
+  const counted = await db.transaction(async (tx) => {
+    await tx
+      .update(contact)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(contact.id, contactId));
+    return tx
+      .select({ n: count() })
+      .from(record)
+      .where(
+        and(eq(record.ledgerId, ctx.ledgerId), eq(record.contactId, contactId), isNull(record.deletedAt)),
+      );
   });
-  if (!existing) throw new AppError("NOT_FOUND");
 
-  const [, recordCount] = await prisma.$transaction([
-    prisma.contact.update({
-      where: { id: contactId },
-      data: { deletedAt: new Date() },
-    }),
-    prisma.record.count({
-      where: { ledgerId: ctx.ledgerId, contactId, deletedAt: null },
-    }),
-  ]);
-
-  return { deleted: true, recordCount };
+  return { deleted: true, recordCount: Number(counted[0]?.n ?? 0) };
 }

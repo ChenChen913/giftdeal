@@ -1,29 +1,39 @@
-import { networkInterfaces } from "node:os";
+import * as nodeOs from "node:os";
 
 import { betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { phoneNumber } from "better-auth/plugins";
 
 import { bootstrapUser } from "./bootstrap";
-import { prisma } from "./db";
+import { db } from "./db-drizzle";
 import { isMockOtpEnabled, mockOtpCode, otpProvider } from "./otp";
+import { account, session, user, verification } from "./schema";
 
 /**
  * 本地演示用：手机通过局域网 IP 访问时，Origin 不是 localhost，
  * 需要把这些内网地址加进 trustedOrigins，否则登录会被判 Invalid origin。
  * 仅在 ALLOW_LAN_ACCESS=true 时启用；生产环境有真实域名，不需要开。
+ *
+ * 注意：Cloudflare Workers（workerd）的 node:os 不提供网卡枚举。
+ * 这里用命名空间导入而非命名导入——缺失的命名导出会让模块加载直接抛错，
+ * 而命名空间属性只会在访问时为 undefined，可以安全兜底。
  */
 function lanOrigins(): string[] {
   if (process.env.ALLOW_LAN_ACCESS !== "true") return [];
+  if (typeof nodeOs.networkInterfaces !== "function") return [];
   const port = process.env.PORT ?? "3000";
   const origins: string[] = [];
-  for (const list of Object.values(networkInterfaces())) {
-    for (const net of list ?? []) {
-      // 跳过回环与 169.254 链路本地地址，其余内网 IPv4 都放行
-      if (net.family === "IPv4" && !net.internal && !net.address.startsWith("169.254.")) {
-        origins.push(`http://${net.address}:${port}`);
+  try {
+    for (const list of Object.values(nodeOs.networkInterfaces())) {
+      for (const net of list ?? []) {
+        // 跳过回环与 169.254 链路本地地址，其余内网 IPv4 都放行
+        if (net.family === "IPv4" && !net.internal && !net.address.startsWith("169.254.")) {
+          origins.push(`http://${net.address}:${port}`);
+        }
       }
     }
+  } catch {
+    // 运行时禁止网卡枚举时忽略，不影响登录
   }
   return origins;
 }
@@ -36,7 +46,10 @@ function lanOrigins(): string[] {
  * - 建号后由 databaseHooks 建默认账本（失败不影响登录，/me 会兜底重试）
  */
 export const auth = betterAuth({
-  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    schema: { user, session, account, verification },
+  }),
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   /**

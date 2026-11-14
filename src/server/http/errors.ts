@@ -90,10 +90,8 @@ export class AppError extends Error {
 
 /** 判断 Prisma 唯一约束冲突，避免直接依赖生成的 Prisma 命名空间 */
 export function isUniqueConstraintError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "P2002"
-  );
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  const code = (error as { code?: unknown }).code;
+  // P2002 = Prisma 的唯一约束错误；23505 = PostgreSQL 原生 unique_violation
+  return code === "P2002" || code === "23505";
 }

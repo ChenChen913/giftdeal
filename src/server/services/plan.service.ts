@@ -1,11 +1,14 @@
+import { and, asc, count, desc, eq, isNull, sum } from "drizzle-orm";
+
 import { SCENE_LABELS, type GiftScene, type RecordDirection } from "@/lib/constants";
 import { daysUntil, parseDateOnly, toDateOnly, todayDateOnly } from "@/lib/date";
 import { centsToYuan } from "@/lib/money";
 
-import { prisma } from "@/server/db";
+import { db } from "@/server/db-drizzle";
 import type { LedgerContext } from "@/server/guards/ledger";
 import { AppError } from "@/server/http/errors";
-import { recordInclude, recordToDto } from "@/server/mappers/record.mapper";
+import { recordToDto } from "@/server/mappers/record.mapper";
+import { contact, giftPlan, record } from "@/server/schema";
 import type {
   CompletePlanInput,
   CreatePlanInput,
@@ -32,12 +35,26 @@ export type PlanDto = {
   createdAt: string;
 };
 
-const planInclude = {
-  contact: { select: { id: true, name: true, relationTag: true } },
-  record: { select: { id: true } },
+const planWith = {
+  contact: { columns: { id: true, name: true, relationTag: true } },
+  record: { columns: { id: true } },
 } as const;
 
-type PlanRow = {
+const recordWith = {
+  contact: { columns: { id: true, name: true, relationTag: true } },
+  settledRecord: { columns: { id: true } },
+} as const;
+
+function toCents(value: string | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  return typeof value === "number" ? value : Number(value);
+}
+
+function newId(): string {
+  return crypto.randomUUID();
+}
+
+function toDto(row: {
   id: string;
   ledgerId: string;
   contactId: string;
@@ -52,9 +69,7 @@ type PlanRow = {
   createdAt: Date;
   contact: { id: string; name: string; relationTag: string | null };
   record?: { id: string } | null;
-};
-
-function toDto(row: PlanRow): PlanDto {
+}): PlanDto {
   return {
     id: row.id,
     ledgerId: row.ledgerId,
@@ -79,70 +94,94 @@ export async function listPlans(
   ctx: LedgerContext,
   input: { status: "PLANNED" | "DONE" | "ALL"; contactId?: string; page: number; pageSize: number },
 ) {
-  const where = {
-    ledgerId: ctx.ledgerId,
-    deletedAt: null,
-    ...(input.status === "ALL" ? {} : { status: input.status }),
-    ...(input.contactId ? { contactId: input.contactId } : {}),
-  };
+  const conditions = [eq(giftPlan.ledgerId, ctx.ledgerId), isNull(giftPlan.deletedAt)];
+  if (input.status !== "ALL") conditions.push(eq(giftPlan.status, input.status));
+  if (input.contactId) conditions.push(eq(giftPlan.contactId, input.contactId));
+  const where = and(...conditions);
 
-  const [total, rows] = await prisma.$transaction([
-    prisma.giftPlan.count({ where }),
-    prisma.giftPlan.findMany({
+  const orderBy =
+    input.status === "DONE"
+      ? [desc(giftPlan.completedAt), desc(giftPlan.expectedAt)]
+      : [asc(giftPlan.expectedAt), asc(giftPlan.createdAt)];
+
+  const [totalRows, rows] = await Promise.all([
+    db.select({ n: count() }).from(giftPlan).where(where),
+    db.query.giftPlan.findMany({
       where,
-      include: planInclude,
-      orderBy:
-        input.status === "DONE"
-          ? [{ completedAt: "desc" }, { expectedAt: "desc" }]
-          : [{ expectedAt: "asc" }, { createdAt: "asc" }],
-      skip: (input.page - 1) * input.pageSize,
-      take: input.pageSize,
+      with: planWith,
+      orderBy,
+      offset: (input.page - 1) * input.pageSize,
+      limit: input.pageSize,
     }),
   ]);
 
-  return { items: rows.map(toDto), total };
+  return { items: rows.map(toDto), total: Number(totalRows[0]?.n ?? 0) };
 }
 
 /** 首页用：最近要办的几件事 */
 export async function getUpcomingPlans(ledgerId: string, limit = 3) {
-  const rows = await prisma.giftPlan.findMany({
-    where: { ledgerId, deletedAt: null, status: "PLANNED" },
-    include: planInclude,
-    orderBy: [{ expectedAt: "asc" }, { createdAt: "asc" }],
-    take: limit,
+  const rows = await db.query.giftPlan.findMany({
+    where: and(
+      eq(giftPlan.ledgerId, ledgerId),
+      isNull(giftPlan.deletedAt),
+      eq(giftPlan.status, "PLANNED"),
+    ),
+    with: planWith,
+    orderBy: [asc(giftPlan.expectedAt), asc(giftPlan.createdAt)],
+    limit,
   });
   return rows.map(toDto);
 }
 
 export async function getPlanSummary(ledgerId: string) {
-  const [count, sum] = await Promise.all([
-    prisma.giftPlan.count({ where: { ledgerId, deletedAt: null, status: "PLANNED" } }),
-    prisma.giftPlan.aggregate({
-      where: { ledgerId, deletedAt: null, status: "PLANNED" },
-      _sum: { plannedCents: true },
-    }),
+  const where = and(
+    eq(giftPlan.ledgerId, ledgerId),
+    isNull(giftPlan.deletedAt),
+    eq(giftPlan.status, "PLANNED"),
+  );
+
+  const [countRows, sumRows] = await Promise.all([
+    db.select({ n: count() }).from(giftPlan).where(where),
+    db.select({ total: sum(giftPlan.plannedCents) }).from(giftPlan).where(where),
   ]);
-  return { planCount: count, planCents: sum._sum.plannedCents ?? 0 };
+
+  return {
+    planCount: Number(countRows[0]?.n ?? 0),
+    planCents: toCents(sumRows[0]?.total),
+  };
 }
 
 export async function getPlan(ctx: LedgerContext, planId: string): Promise<PlanDto> {
-  const row = await prisma.giftPlan.findFirst({
-    where: { id: planId, ledgerId: ctx.ledgerId, deletedAt: null },
-    include: planInclude,
+  const row = await db.query.giftPlan.findFirst({
+    where: and(
+      eq(giftPlan.id, planId),
+      eq(giftPlan.ledgerId, ctx.ledgerId),
+      isNull(giftPlan.deletedAt),
+    ),
+    with: planWith,
   });
   if (!row) throw new AppError("NOT_FOUND");
   return toDto(row);
 }
 
 export async function createPlan(ctx: LedgerContext, input: CreatePlanInput): Promise<PlanDto> {
-  const contact = await prisma.contact.findFirst({
-    where: { id: input.contactId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!contact) throw new AppError("NOT_FOUND");
+  const contactRows = await db
+    .select({ id: contact.id })
+    .from(contact)
+    .where(
+      and(
+        eq(contact.id, input.contactId),
+        eq(contact.ledgerId, ctx.ledgerId),
+        isNull(contact.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (contactRows.length === 0) throw new AppError("NOT_FOUND");
 
-  const row = await prisma.giftPlan.create({
-    data: {
+  const inserted = await db
+    .insert(giftPlan)
+    .values({
+      id: newId(),
       ledgerId: ctx.ledgerId,
       contactId: input.contactId,
       direction: input.direction,
@@ -151,11 +190,14 @@ export async function createPlan(ctx: LedgerContext, input: CreatePlanInput): Pr
       expectedAt: parseDateOnly(input.expectedAt),
       note: input.note ?? null,
       createdById: ctx.userId,
-    },
-    include: planInclude,
-  });
+    })
+    .returning({ id: giftPlan.id });
 
-  return toDto(row);
+  const row = await db.query.giftPlan.findFirst({
+    where: eq(giftPlan.id, inserted[0].id),
+    with: planWith,
+  });
+  return toDto(row!);
 }
 
 export async function updatePlan(
@@ -163,18 +205,21 @@ export async function updatePlan(
   planId: string,
   input: UpdatePlanInput,
 ): Promise<PlanDto> {
-  const existing = await prisma.giftPlan.findFirst({
-    where: { id: planId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true, status: true },
-  });
-  if (!existing) throw new AppError("NOT_FOUND");
-  if (existing.status === "DONE") {
+  const existing = await db
+    .select({ id: giftPlan.id, status: giftPlan.status })
+    .from(giftPlan)
+    .where(
+      and(eq(giftPlan.id, planId), eq(giftPlan.ledgerId, ctx.ledgerId), isNull(giftPlan.deletedAt)),
+    )
+    .limit(1);
+  if (existing.length === 0) throw new AppError("NOT_FOUND");
+  if (existing[0].status === "DONE") {
     throw new AppError("CONFLICT", undefined, "已完成的预备不能再修改");
   }
 
-  const row = await prisma.giftPlan.update({
-    where: { id: planId },
-    data: {
+  await db
+    .update(giftPlan)
+    .set({
       ...(input.direction !== undefined ? { direction: input.direction } : {}),
       ...(input.scene !== undefined ? { scene: input.scene } : {}),
       ...(input.plannedCents !== undefined ? { plannedCents: input.plannedCents } : {}),
@@ -182,25 +227,32 @@ export async function updatePlan(
         ? { expectedAt: parseDateOnly(input.expectedAt) }
         : {}),
       ...(input.note !== undefined ? { note: input.note } : {}),
-    },
-    include: planInclude,
-  });
+      updatedAt: new Date(),
+    })
+    .where(eq(giftPlan.id, planId));
 
-  return toDto(row);
+  const row = await db.query.giftPlan.findFirst({
+    where: eq(giftPlan.id, planId),
+    with: planWith,
+  });
+  return toDto(row!);
 }
 
 /** 软删除：预备取消或记错了 */
 export async function deletePlan(ctx: LedgerContext, planId: string) {
-  const existing = await prisma.giftPlan.findFirst({
-    where: { id: planId, ledgerId: ctx.ledgerId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!existing) throw new AppError("NOT_FOUND");
+  const existing = await db
+    .select({ id: giftPlan.id })
+    .from(giftPlan)
+    .where(
+      and(eq(giftPlan.id, planId), eq(giftPlan.ledgerId, ctx.ledgerId), isNull(giftPlan.deletedAt)),
+    )
+    .limit(1);
+  if (existing.length === 0) throw new AppError("NOT_FOUND");
 
-  await prisma.giftPlan.update({
-    where: { id: planId },
-    data: { deletedAt: new Date() },
-  });
+  await db
+    .update(giftPlan)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(eq(giftPlan.id, planId));
 
   return { deleted: true };
 }
@@ -214,44 +266,57 @@ export async function completePlan(
   planId: string,
   input: CompletePlanInput,
 ) {
-  const result = await prisma.$transaction(async (tx) => {
-    const plan = await tx.giftPlan.findFirst({
-      where: { id: planId, ledgerId: ctx.ledgerId, deletedAt: null },
-      include: planInclude,
+  return db.transaction(async (tx) => {
+    const plan = await tx.query.giftPlan.findFirst({
+      where: and(
+        eq(giftPlan.id, planId),
+        eq(giftPlan.ledgerId, ctx.ledgerId),
+        isNull(giftPlan.deletedAt),
+      ),
+      with: planWith,
     });
     if (!plan) throw new AppError("NOT_FOUND");
     if (plan.status === "DONE") throw new AppError("CONFLICT", undefined, "这笔预备已经完成了");
 
-    let record = null;
+    let createdRecordId: string | null = null;
 
     if (input.createRecord) {
-      record = await tx.record.create({
-        data: {
-          ledgerId: ctx.ledgerId,
-          contactId: plan.contactId,
-          direction: plan.direction,
-          amountCents: input.amountCents ?? plan.plannedCents,
-          scene: plan.scene,
-          occurredAt: parseDateOnly(input.occurredAt ?? todayDateOnly()),
-          note: plan.note,
-          createdById: ctx.userId,
-        },
-        include: recordInclude,
+      createdRecordId = newId();
+      await tx.insert(record).values({
+        id: createdRecordId,
+        ledgerId: ctx.ledgerId,
+        contactId: plan.contactId,
+        direction: plan.direction,
+        amountCents: input.amountCents ?? plan.plannedCents,
+        scene: plan.scene,
+        occurredAt: parseDateOnly(input.occurredAt ?? todayDateOnly()),
+        note: plan.note,
+        createdById: ctx.userId,
       });
     }
 
-    const updated = await tx.giftPlan.update({
-      where: { id: plan.id },
-      data: {
+    await tx
+      .update(giftPlan)
+      .set({
         status: "DONE",
         completedAt: new Date(),
-        ...(record ? { recordId: record.id } : {}),
-      },
-      include: planInclude,
+        updatedAt: new Date(),
+        ...(createdRecordId ? { recordId: createdRecordId } : {}),
+      })
+      .where(eq(giftPlan.id, plan.id));
+
+    const updated = await tx.query.giftPlan.findFirst({
+      where: eq(giftPlan.id, plan.id),
+      with: planWith,
     });
 
-    return { plan: toDto(updated), record: record ? recordToDto(record) : null };
-  });
+    const created = createdRecordId
+      ? await tx.query.record.findFirst({
+          where: eq(record.id, createdRecordId),
+          with: recordWith,
+        })
+      : null;
 
-  return result;
+    return { plan: toDto(updated!), record: created ? recordToDto(created) : null };
+  });
 }

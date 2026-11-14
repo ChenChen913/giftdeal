@@ -1,11 +1,20 @@
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
+
 import type { MembershipRole } from "@/lib/constants";
 import { maskPhone } from "@/lib/mask";
 
 import { bootstrapUser } from "@/server/bootstrap";
-import { prisma } from "@/server/db";
+import { db } from "@/server/db-drizzle";
 import type { LedgerContext } from "@/server/guards/ledger";
-import { AppError } from "@/server/http/errors";
 import { requireOwner } from "@/server/guards/ledger";
+import { AppError } from "@/server/http/errors";
+import {
+  contact,
+  ledger as ledgerTable,
+  membership,
+  record,
+  user as userTable,
+} from "@/server/schema";
 
 export type LedgerSummary = {
   id: string;
@@ -18,114 +27,130 @@ export type LedgerSummary = {
   createdAt: string;
 };
 
+function newId(): string {
+  return crypto.randomUUID();
+}
+
 export async function listMyLedgers(userId: string): Promise<LedgerSummary[]> {
-  const memberships = await prisma.membership.findMany({
-    where: { userId },
-    include: { ledger: { select: { id: true, name: true, createdAt: true } } },
-    orderBy: { joinedAt: "asc" },
+  const memberships = await db.query.membership.findMany({
+    where: eq(membership.userId, userId),
+    with: { ledger: { columns: { id: true, name: true, createdAt: true } } },
+    orderBy: [asc(membership.joinedAt)],
   });
 
   if (memberships.length === 0) return [];
 
   const ledgerIds = memberships.map((m) => m.ledgerId);
 
-  const [user, memberCounts, contactCounts, recordCounts] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { defaultLedgerId: true } }),
-    prisma.membership.groupBy({
-      by: ["ledgerId"],
-      where: { ledgerId: { in: ledgerIds } },
-      _count: { _all: true },
-    }),
-    prisma.contact.groupBy({
-      by: ["ledgerId"],
-      where: { ledgerId: { in: ledgerIds }, deletedAt: null },
-      _count: { _all: true },
-    }),
-    prisma.record.groupBy({
-      by: ["ledgerId"],
-      where: { ledgerId: { in: ledgerIds }, deletedAt: null },
-      _count: { _all: true },
-    }),
+  const [userRows, memberCounts, contactCounts, recordCounts] = await Promise.all([
+    db
+      .select({ defaultLedgerId: userTable.defaultLedgerId })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .limit(1),
+    db
+      .select({ ledgerId: membership.ledgerId, n: count() })
+      .from(membership)
+      .where(inArray(membership.ledgerId, ledgerIds))
+      .groupBy(membership.ledgerId),
+    db
+      .select({ ledgerId: contact.ledgerId, n: count() })
+      .from(contact)
+      .where(and(inArray(contact.ledgerId, ledgerIds), isNull(contact.deletedAt)))
+      .groupBy(contact.ledgerId),
+    db
+      .select({ ledgerId: record.ledgerId, n: count() })
+      .from(record)
+      .where(and(inArray(record.ledgerId, ledgerIds), isNull(record.deletedAt)))
+      .groupBy(record.ledgerId),
   ]);
 
-  const toMap = (rows: { ledgerId: string; _count: { _all: number } }[]) =>
-    new Map(rows.map((row) => [row.ledgerId, row._count._all]));
+  const toMap = (rows: { ledgerId: string; n: number | string }[]) =>
+    new Map(rows.map((row) => [row.ledgerId, Number(row.n)]));
 
   const memberMap = toMap(memberCounts);
   const contactMap = toMap(contactCounts);
   const recordMap = toMap(recordCounts);
+  const defaultLedgerId = userRows[0]?.defaultLedgerId ?? null;
 
-  return memberships.map((membership) => ({
-    id: membership.ledger.id,
-    name: membership.ledger.name,
-    role: membership.role as MembershipRole,
-    memberCount: memberMap.get(membership.ledgerId) ?? 0,
-    contactCount: contactMap.get(membership.ledgerId) ?? 0,
-    recordCount: recordMap.get(membership.ledgerId) ?? 0,
-    isDefault: user?.defaultLedgerId === membership.ledgerId,
-    createdAt: membership.ledger.createdAt.toISOString(),
+  return memberships.map((m) => ({
+    id: m.ledger.id,
+    name: m.ledger.name,
+    role: m.role as MembershipRole,
+    memberCount: memberMap.get(m.ledgerId) ?? 0,
+    contactCount: contactMap.get(m.ledgerId) ?? 0,
+    recordCount: recordMap.get(m.ledgerId) ?? 0,
+    isDefault: defaultLedgerId === m.ledgerId,
+    createdAt: m.ledger.createdAt.toISOString(),
   }));
 }
 
 export async function createLedger(userId: string, name: string) {
-  const ledger = await prisma.$transaction(async (tx) => {
-    const created = await tx.ledger.create({ data: { name } });
-    await tx.membership.create({
-      data: { ledgerId: created.id, userId, role: "OWNER" },
-    });
+  const created = await db.transaction(async (tx) => {
+    const ledgerId = newId();
+    const inserted = await tx
+      .insert(ledgerTable)
+      .values({ id: ledgerId, name })
+      .returning();
+    await tx.insert(membership).values({ id: newId(), ledgerId, userId, role: "OWNER" });
 
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: { defaultLedgerId: true },
-    });
-    if (!user?.defaultLedgerId) {
-      await tx.user.update({
-        where: { id: userId },
-        data: { defaultLedgerId: created.id },
-      });
+    const userRows = await tx
+      .select({ defaultLedgerId: userTable.defaultLedgerId })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .limit(1);
+    if (!userRows[0]?.defaultLedgerId) {
+      await tx
+        .update(userTable)
+        .set({ defaultLedgerId: ledgerId, updatedAt: new Date() })
+        .where(eq(userTable.id, userId));
     }
 
-    return created;
+    return inserted[0];
   });
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { defaultLedgerId: true },
-  });
+  const userRows = await db
+    .select({ defaultLedgerId: userTable.defaultLedgerId })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .limit(1);
 
   return {
-    id: ledger.id,
-    name: ledger.name,
+    id: created.id,
+    name: created.name,
     role: "OWNER" as MembershipRole,
     memberCount: 1,
-    isDefault: user?.defaultLedgerId === ledger.id,
-    createdAt: ledger.createdAt.toISOString(),
+    isDefault: userRows[0]?.defaultLedgerId === created.id,
+    createdAt: created.createdAt.toISOString(),
   };
 }
 
 export async function getLedgerDetail(ctx: LedgerContext) {
-  const ledger = await prisma.ledger.findUnique({
-    where: { id: ctx.ledgerId },
-    include: {
-      memberships: {
-        include: { user: { select: { id: true, name: true, phoneNumber: true } } },
-        orderBy: { joinedAt: "asc" },
-      },
-    },
-  });
+  const ledgerRows = await db
+    .select({ id: ledgerTable.id, name: ledgerTable.name, createdAt: ledgerTable.createdAt })
+    .from(ledgerTable)
+    .where(eq(ledgerTable.id, ctx.ledgerId))
+    .limit(1);
+  const ledger = ledgerRows[0];
   if (!ledger) throw new AppError("LEDGER_NOT_FOUND");
+
+  const memberships = await db.query.membership.findMany({
+    where: eq(membership.ledgerId, ctx.ledgerId),
+    with: { user: { columns: { id: true, name: true, phoneNumber: true } } },
+    orderBy: [asc(membership.joinedAt)],
+  });
 
   return {
     id: ledger.id,
     name: ledger.name,
     role: ctx.role,
     createdAt: ledger.createdAt.toISOString(),
-    members: ledger.memberships.map((membership) => ({
-      userId: membership.user.id,
-      name: membership.user.name,
-      phoneNumberMasked: maskPhone(membership.user.phoneNumber),
-      role: membership.role as MembershipRole,
-      joinedAt: membership.joinedAt.toISOString(),
+    members: memberships.map((m) => ({
+      userId: m.user.id,
+      name: m.user.name,
+      phoneNumberMasked: maskPhone(m.user.phoneNumber),
+      role: m.role as MembershipRole,
+      joinedAt: m.joinedAt.toISOString(),
     })),
   };
 }
@@ -133,11 +158,13 @@ export async function getLedgerDetail(ctx: LedgerContext) {
 export async function renameLedger(ctx: LedgerContext, name: string) {
   requireOwner(ctx);
 
-  const ledger = await prisma.ledger.update({
-    where: { id: ctx.ledgerId },
-    data: { name },
-  });
+  const updated = await db
+    .update(ledgerTable)
+    .set({ name, updatedAt: new Date() })
+    .where(eq(ledgerTable.id, ctx.ledgerId))
+    .returning();
 
+  const ledger = updated[0];
   return {
     id: ledger.id,
     name: ledger.name,
@@ -154,7 +181,11 @@ export async function renameLedger(ctx: LedgerContext, name: string) {
  */
 export async function leaveLedger(ctx: LedgerContext) {
   if (ctx.role === "OWNER") {
-    const memberCount = await prisma.membership.count({ where: { ledgerId: ctx.ledgerId } });
+    const rows = await db
+      .select({ n: count() })
+      .from(membership)
+      .where(eq(membership.ledgerId, ctx.ledgerId));
+    const memberCount = Number(rows[0]?.n ?? 0);
     throw new AppError(
       "CONFLICT",
       undefined,
@@ -164,26 +195,28 @@ export async function leaveLedger(ctx: LedgerContext) {
     );
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.membership.delete({
-      where: { ledgerId_userId: { ledgerId: ctx.ledgerId, userId: ctx.userId } },
-    });
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(membership)
+      .where(and(eq(membership.ledgerId, ctx.ledgerId), eq(membership.userId, ctx.userId)));
 
-    const user = await tx.user.findUnique({
-      where: { id: ctx.userId },
-      select: { defaultLedgerId: true },
-    });
+    const userRows = await tx
+      .select({ defaultLedgerId: userTable.defaultLedgerId })
+      .from(userTable)
+      .where(eq(userTable.id, ctx.userId))
+      .limit(1);
 
-    if (user?.defaultLedgerId === ctx.ledgerId) {
-      const next = await tx.membership.findFirst({
-        where: { userId: ctx.userId },
-        orderBy: { joinedAt: "asc" },
-        select: { ledgerId: true },
-      });
-      await tx.user.update({
-        where: { id: ctx.userId },
-        data: { defaultLedgerId: next?.ledgerId ?? null },
-      });
+    if (userRows[0]?.defaultLedgerId === ctx.ledgerId) {
+      const next = await tx
+        .select({ ledgerId: membership.ledgerId })
+        .from(membership)
+        .where(eq(membership.userId, ctx.userId))
+        .orderBy(asc(membership.joinedAt))
+        .limit(1);
+      await tx
+        .update(userTable)
+        .set({ defaultLedgerId: next[0]?.ledgerId ?? null, updatedAt: new Date() })
+        .where(eq(userTable.id, ctx.userId));
     }
   });
 
@@ -200,50 +233,72 @@ export async function transferOwnership(ctx: LedgerContext, targetUserId: string
     });
   }
 
-  return prisma.$transaction(async (tx) => {
-    const target = await tx.membership.findUnique({
-      where: { ledgerId_userId: { ledgerId: ctx.ledgerId, userId: targetUserId } },
-      select: { id: true },
-    });
-    if (!target) throw new AppError("NOT_FOUND", undefined, "该用户不是本账本成员");
+  return db.transaction(async (tx) => {
+    const targetRows = await tx
+      .select({ id: membership.id })
+      .from(membership)
+      .where(and(eq(membership.ledgerId, ctx.ledgerId), eq(membership.userId, targetUserId)))
+      .limit(1);
+    if (targetRows.length === 0) throw new AppError("NOT_FOUND", undefined, "该用户不是本账本成员");
 
     // 条件更新：并发下只有一个请求能把 OWNER 交出去
-    const demoted = await tx.membership.updateMany({
-      where: { ledgerId: ctx.ledgerId, userId: ctx.userId, role: "OWNER" },
-      data: { role: "MEMBER" },
-    });
-    if (demoted.count === 0) {
+    const demoted = await tx
+      .update(membership)
+      .set({ role: "MEMBER" })
+      .where(
+        and(
+          eq(membership.ledgerId, ctx.ledgerId),
+          eq(membership.userId, ctx.userId),
+          eq(membership.role, "OWNER"),
+        ),
+      )
+      .returning({ id: membership.id });
+    if (demoted.length === 0) {
       throw new AppError("FORBIDDEN", undefined, "你已不是该账本管理员");
     }
 
-    await tx.membership.update({
-      where: { ledgerId_userId: { ledgerId: ctx.ledgerId, userId: targetUserId } },
-      data: { role: "OWNER" },
-    });
+    await tx
+      .update(membership)
+      .set({ role: "OWNER" })
+      .where(and(eq(membership.ledgerId, ctx.ledgerId), eq(membership.userId, targetUserId)));
 
     return { transferred: true, newOwnerId: targetUserId };
   });
 }
 
-export async function setDefaultLedger(userId: string, ledgerId: string) {  const membership = await prisma.membership.findUnique({
-    where: { ledgerId_userId: { ledgerId, userId } },
-    select: { id: true },
-  });
-  if (!membership) throw new AppError("LEDGER_FORBIDDEN");
+export async function setDefaultLedger(userId: string, ledgerId: string) {
+  const rows = await db
+    .select({ id: membership.id })
+    .from(membership)
+    .where(and(eq(membership.ledgerId, ledgerId), eq(membership.userId, userId)))
+    .limit(1);
+  if (rows.length === 0) throw new AppError("LEDGER_FORBIDDEN");
 
-  await prisma.user.update({ where: { id: userId }, data: { defaultLedgerId: ledgerId } });
+  await db
+    .update(userTable)
+    .set({ defaultLedgerId: ledgerId, updatedAt: new Date() })
+    .where(eq(userTable.id, userId));
 }
 
 export async function getMe(userId: string) {
   const defaultLedgerId = await bootstrapUser(userId);
 
-  const [user, ledgers] = await Promise.all([
-    prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { id: true, name: true, phoneNumber: true, createdAt: true },
-    }),
+  const [userRows, ledgers] = await Promise.all([
+    db
+      .select({
+        id: userTable.id,
+        name: userTable.name,
+        phoneNumber: userTable.phoneNumber,
+        createdAt: userTable.createdAt,
+      })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .limit(1),
     listMyLedgers(userId),
   ]);
+
+  const user = userRows[0];
+  if (!user) throw new AppError("NOT_FOUND");
 
   return {
     user: {
@@ -253,12 +308,12 @@ export async function getMe(userId: string) {
       createdAt: user.createdAt.toISOString(),
     },
     defaultLedgerId,
-    ledgers: ledgers.map((ledger) => ({
-      id: ledger.id,
-      name: ledger.name,
-      role: ledger.role,
-      memberCount: ledger.memberCount,
-      isDefault: ledger.id === defaultLedgerId,
+    ledgers: ledgers.map((l) => ({
+      id: l.id,
+      name: l.name,
+      role: l.role,
+      memberCount: l.memberCount,
+      isDefault: l.id === defaultLedgerId,
     })),
   };
 }

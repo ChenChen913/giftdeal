@@ -14,6 +14,10 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+  // Prisma 7 的查询编译器是 WASM。默认 nodejs runtime 会把 wasm 以 base64 内联，
+  // 运行时用 new WebAssembly.Module() 动态编译——Cloudflare Workers 禁止这个操作。
+  // workerd runtime 改为静态 wasm 导入，才能部署到 Workers。
+  runtime  = "workerd"
 }
 
 datasource db {

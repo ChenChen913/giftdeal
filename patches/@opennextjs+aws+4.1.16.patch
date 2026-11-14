@@ -1,0 +1,21 @@
+diff --git a/node_modules/@opennextjs/aws/dist/build/copyTracedFiles.js b/node_modules/@opennextjs/aws/dist/build/copyTracedFiles.js
+index 9090f0f..9405cec 100644
+--- a/node_modules/@opennextjs/aws/dist/build/copyTracedFiles.js
++++ b/node_modules/@opennextjs/aws/dist/build/copyTracedFiles.js
+@@ -238,7 +238,15 @@ File ${serverPath} does not exist
+             }
+             catch (e) {
+                 if (e.code !== "EEXIST") {
+-                    throw e;
++                    // Windows 默认没有创建符号链接的权限（EPERM）。
++                    // 退化为递归复制：内容等价，只是不再共享 inode。
++                    try {
++                        cpSync(from, to, { recursive: true, dereference: true });
++                    }
++                    catch (copyError) {
++                        logger.debug("Error copying symlinked path:", copyError);
++                        erroredFiles.push(to);
++                    }
+                 }
+             }
+         }
