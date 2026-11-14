@@ -11,6 +11,9 @@ import { useRecordDialog } from "./record-dialog";
 import { RecordDeleteDialog, RecordEditDialog } from "./record-edit-dialog";
 import { Avatar, Empty, LoadingBlock, Modal, Spinner } from "./ui";
 
+/** 时间线每次渲染的条数，避免几百条记录一次性铺开 */
+const RECORDS_PAGE_SIZE = 50;
+
 export function ContactDetail({ contactId }: { contactId: string }) {
   const { ledgerId, overview } = useLedger();
   const { toast } = useToast();
@@ -25,6 +28,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<RecordItem | null>(null);
   const [deleting, setDeleting] = useState<RecordItem | null>(null);
+  const [visibleCount, setVisibleCount] = useState(RECORDS_PAGE_SIZE);
 
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({ name: "", relationTag: "", phone: "", note: "" });
@@ -51,6 +55,11 @@ export function ContactDetail({ contactId }: { contactId: string }) {
   useEffect(() => {
     void load();
   }, [load, overview?.recordCount]);
+
+  // 换一位亲友时回到第一页
+  useEffect(() => {
+    setVisibleCount(RECORDS_PAGE_SIZE);
+  }, [contactId]);
 
   const settle = async (record: RecordItem) => {
     setBusyId(record.id);
@@ -125,6 +134,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
   }
 
   const { summary, records } = settlement;
+  const visibleRecords = records.slice(0, visibleCount);
   const stance = netStance(summary.netCents);
   const flow = summary.givenTotalCents + summary.receivedTotalCents;
   const givenPct = flow ? Math.round((summary.givenTotalCents / flow) * 100) : 50;
@@ -252,7 +262,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
         ) : (
           <div className="card-body">
             <div className="timeline">
-              {records.map((record) => (
+              {visibleRecords.map((record) => (
                 <div key={record.id} className="tl-item">
                   <span className={`tl-dot ${record.direction === "GIVEN" ? "given" : "received"}`} />
                   <div className="tl-card">
@@ -342,6 +352,18 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 </div>
               ))}
             </div>
+
+            {visibleCount < records.length ? (
+              <div style={{ paddingTop: 12, textAlign: "center" }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setVisibleCount((count) => count + RECORDS_PAGE_SIZE)}
+                >
+                  加载更早的记录（还有 {records.length - visibleCount} 笔）
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

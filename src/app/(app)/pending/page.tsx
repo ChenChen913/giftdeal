@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { useLedger, useToast, usePrivacy } from "@/components/providers";
 import { useRecordDialog } from "@/components/record-dialog";
+import { RecordDeleteDialog, RecordEditDialog } from "@/components/record-edit-dialog";
 import { Avatar, Empty, LoadingBlock, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import {formatDate, SCENE_TONE} from "@/lib/format";
@@ -25,6 +26,8 @@ export default function PendingPage() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortKey>("oldest");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<PendingItem | null>(null);
+  const [deleting, setDeleting] = useState<PendingItem | null>(null);
 
   const load = useCallback(async () => {
     if (!ledgerId) return;
@@ -203,6 +206,29 @@ export default function PendingPage() {
                   <Icon name="arrowRight" size={13} />
                   去记一笔还礼
                 </button>
+
+                <div className="row" style={{ gap: 2 }}>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    style={{ width: 26, height: 26 }}
+                    title="编辑这笔礼金"
+                    aria-label="编辑这笔礼金"
+                    onClick={() => setEditing(record)}
+                  >
+                    <Icon name="edit" size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    style={{ width: 26, height: 26 }}
+                    title="删除这笔礼金"
+                    aria-label="删除这笔礼金"
+                    onClick={() => setDeleting(record)}
+                  >
+                    <Icon name="trash" size={13} />
+                  </button>
+                </div>
               </div>
             </div>
           ))
@@ -215,6 +241,20 @@ export default function PendingPage() {
           温和礼俗提示：标记为「已还」不会从历史账簿删除原始收礼数据，仅解除待还状态，并自动计入收支对账平衡表。
         </span>
       </div>
+
+      <RecordEditDialog
+        record={editing}
+        ledgerId={ledgerId ?? ""}
+        onClose={() => setEditing(null)}
+        onChanged={() => void load()}
+      />
+
+      <RecordDeleteDialog
+        record={deleting}
+        ledgerId={ledgerId ?? ""}
+        onClose={() => setDeleting(null)}
+        onChanged={() => void load()}
+      />
     </div>
   );
 }

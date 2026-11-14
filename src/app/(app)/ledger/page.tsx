@@ -32,6 +32,9 @@ export default function LedgerPage() {
   const [detail, setDetail] = useState<LedgerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [newLedgerName, setNewLedgerName] = useState("");
+  const [renaming, setRenaming] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [transferTarget, setTransferTarget] = useState<LedgerDetail["members"][number] | null>(null);
@@ -131,6 +134,35 @@ export default function LedgerPage() {
     }
   };
 
+  const openRename = () => {
+    setNewLedgerName(currentLedger?.name ?? "");
+    setRenameOpen(true);
+  };
+
+  const rename = async () => {
+    const name = newLedgerName.trim();
+    if (!name) {
+      toast("请填写账本名称", "error");
+      return;
+    }
+    setRenaming(true);
+    try {
+      await api(`/api/v1/ledgers/${ledgerId}`, {
+        method: "PATCH",
+        ledgerId,
+        body: { name },
+      });
+      setRenameOpen(false);
+      await load();
+      await refresh();
+      toast("账本已重命名");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "重命名失败", "error");
+    } finally {
+      setRenaming(false);
+    }
+  };
+
   const leave = async () => {
     setLeaving(true);
     try {
@@ -204,6 +236,18 @@ export default function LedgerPage() {
                 {currentLedger?.name ?? "—"}
                 {currentLedger?.isDefault ? (
                   <span className="chip chip-primary">默认账本</span>
+                ) : null}
+                {isOwner ? (
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    style={{ width: 26, height: 26 }}
+                    title="重命名账本"
+                    aria-label="重命名账本"
+                    onClick={openRename}
+                  >
+                    <Icon name="edit" size={13} />
+                  </button>
                 ) : null}
               </div>
               <span className="caption">
@@ -468,6 +512,49 @@ export default function LedgerPage() {
             onChange={(event) => setNewName(event.target.value)}
           />
           <span className="field-hint">创建后你会成为管理员，可邀请家人共同记账。</span>
+        </div>
+      </Modal>
+
+      <Modal
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        title="重命名账本"
+        subtitle="新名称会同步给该账本的所有成员"
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setRenameOpen(false)}
+              disabled={renaming}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary grow"
+              onClick={rename}
+              disabled={renaming}
+            >
+              {renaming ? <Spinner /> : <Icon name="check" size={15} />}
+              保存
+            </button>
+          </>
+        }
+      >
+        <div className="field">
+          <span className="label">账本名称</span>
+          <input
+            className="input"
+            maxLength={50}
+            placeholder="如：父母家的人情账"
+            value={newLedgerName}
+            onChange={(event) => setNewLedgerName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void rename();
+            }}
+          />
+          <span className="field-hint">最多 50 个字符。</span>
         </div>
       </Modal>
 

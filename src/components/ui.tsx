@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 import { avatarText } from "@/lib/format";
 import { Icon, type IconName } from "./icons";
@@ -38,6 +38,16 @@ export function Avatar({
 // 弹层
 // ------------------------------------------------------------
 
+/** 弹窗内可聚焦元素，用于 Tab 循环 */
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
 export function Modal({
   open,
   onClose,
@@ -55,17 +65,60 @@ export function Modal({
   footer?: ReactNode;
   wide?: boolean;
 }) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const titleId = useId();
+
   useEffect(() => {
     if (!open) return;
+
+    const previousActive = document.activeElement as HTMLElement | null;
+    const node = dialogRef.current;
+
+    const focusables = () =>
+      Array.from(node?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []).filter(
+        (element) => element.offsetParent !== null,
+      );
+
+    // 初始焦点落在弹窗容器上：既把焦点从背后页面移进来，
+    // 又不会在移动端一打开就弹出输入法键盘
+    node?.focus();
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const list = focusables();
+      if (list.length === 0) {
+        event.preventDefault();
+        node?.focus();
+        return;
+      }
+
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || active === node)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
+
     window.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      document.body.style.overflow = previousOverflow;
+      // 关闭后把焦点还给触发弹窗的那个元素
+      previousActive?.focus?.();
     };
   }, [open, onClose]);
 
@@ -74,17 +127,23 @@ export function Modal({
   return (
     <div
       className="overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className={`modal ${wide ? "modal-wide" : ""}`}>
+      <div
+        ref={dialogRef}
+        className={`modal ${wide ? "modal-wide" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <div className="modal-head">
           <div className="grow">
-            <div className="modal-title">{title}</div>
+            <div className="modal-title" id={titleId}>
+              {title}
+            </div>
             {subtitle ? <div className="modal-sub">{subtitle}</div> : null}
           </div>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭">

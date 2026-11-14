@@ -1782,6 +1782,8 @@ ul {
   display: flex;
   gap: 8px;
   flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .notice {
