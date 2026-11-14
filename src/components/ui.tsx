@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { avatarText } from "@/lib/format";
 import { Icon, type IconName } from "./icons";
@@ -67,8 +68,13 @@ export function Modal({
 }) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
+  const [mounted, setMounted] = useState(false);
   /** onClose 每次渲染都是新函数，存进 ref，避免它把焦点 effect 反复触发 */
   const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -131,9 +137,11 @@ export function Modal({
     };
   }, [open]);
 
-  if (!open) return null;
+  // 挂载到 body：弹窗常被渲染在 sticky / overflow 容器里，
+  // 那些容器会形成独立层叠上下文，导致弹窗被后面的内容盖住
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       className="overlay"
       onMouseDown={(event) => {
@@ -162,7 +170,8 @@ export function Modal({
         <div className="modal-body">{children}</div>
         {footer ? <div className="modal-foot">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

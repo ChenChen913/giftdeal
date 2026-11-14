@@ -977,13 +977,8 @@ ul {
   display: flex;
   align-items: center;
   gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-wrap: wrap;
   padding-bottom: 2px;
-}
-
-.filter-row::-webkit-scrollbar {
-  display: none;
 }
 
 .filter-label {
@@ -1434,7 +1429,7 @@ ul {
 
 .split {
   display: grid;
-  grid-template-columns: 352px minmax(0, 1fr);
+  grid-template-columns: 400px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -2132,7 +2127,7 @@ ul {
 
 @media (max-width: 1024px) {
   .split {
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 340px minmax(0, 1fr);
   }
 
   .page {
