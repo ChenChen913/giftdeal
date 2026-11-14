@@ -19,6 +19,8 @@ export type RecordDto = {
   settledAt: string | null;
   settledByRecordId: string | null;
   settlesRecordId: string | null;
+  /** 关联的人生大事；未归类时为 null */
+  eventId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -34,6 +36,7 @@ type RecordRow = {
   note: string | null;
   settledAt: Date | null;
   settledByRecordId: string | null;
+  eventId: string | null;
   createdAt: Date;
   updatedAt: Date;
   contact: { id: string; name: string; relationTag: string | null };
@@ -61,6 +64,7 @@ export function recordToDto(row: RecordRow): RecordDto {
     settledAt: row.settledAt ? row.settledAt.toISOString() : null,
     settledByRecordId: row.settledByRecordId,
     settlesRecordId: row.settledRecord?.id ?? null,
+    eventId: row.eventId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

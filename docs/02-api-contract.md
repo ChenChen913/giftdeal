@@ -1037,7 +1037,63 @@ await authClient.signOut();    // POST /api/auth/sign-out
 
 ---
 
-## 14. 前端对接注意
+## 14. 人生大事（LifeEvent）
+
+以个人为中心的时间线：一场婚礼、一次满月、一场寿宴。礼金记录可以挂到某场事下，
+用来回答「这场事收了多少、都有谁」。
+
+### 14.1 数据结构
+
+| 字段 | 说明 |
+|---|---|
+| `title` | 事件名称，如「我的婚礼」 |
+| `scene` | 复用礼俗场景枚举 |
+| `occurredAt` | 发生日期 `YYYY-MM-DD` |
+| `location` / `note` | 选填 |
+| `hosted` | 是否我方主办，默认 `true` |
+| `summary` | 汇总：`receivedTotalCents` / `givenTotalCents` / `netCents` / `recordCount` / `participantCount` / `maxReceivedCents` |
+
+### 14.2 GET /api/v1/events
+
+按 `occurredAt` 倒序，需要 `X-Ledger-Id`。
+
+```
+GET /api/v1/events?page=1&pageSize=20
+→ { items: LifeEvent[], total, page, pageSize }
+```
+
+`participantCount` 是按 `(eventId, contactId)` 去重后的人数，不是记录条数。
+
+### 14.3 POST /api/v1/events
+
+```json
+{ "title": "我的婚礼", "scene": "WEDDING", "occurredAt": "2025-05-20",
+  "location": "老家县城", "note": "办了 20 桌" }
+```
+
+→ `201 { event }`
+
+### 14.4 GET /api/v1/events/{id}
+
+→ `{ event, records: RecordDto[] }`，`records` 为挂在该事件下的礼金明细。
+
+### 14.5 PATCH / DELETE
+
+- `PATCH` 字段与创建相同，至少提供一个。
+- `DELETE` 为软删除，**礼金记录不删除**，只把 `eventId` 置 `null`，
+  返回 `{ deleted: true, detachedRecordCount }`。
+
+### 14.6 记录如何关联事件
+
+`POST /records` 与 `PATCH /records/{id}` 都支持 `eventId`：
+
+- 创建时传 `eventId` 即挂到该事件下
+- 更新时传 `null` 解除关联
+- 事件必须属于当前账本，否则返回 `404`
+
+---
+
+## 15. 前端对接注意
 
 1. **每个账本内请求都要带 `X-Ledger-Id`**。建议封装一个 `apiFetch(path, { ledgerId, ... })`，在拦截器里统一注入；切换账本时只改这一个状态。
 2. **切换账本后必须丢弃旧数据**。所有列表都按 `ledgerId` 隔离，不要把上一个账本的结果留在缓存里。

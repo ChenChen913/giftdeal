@@ -187,7 +187,8 @@ async function reset() {
   // 1. 先断开 User.defaultLedgerId 的自引用，否则删账本会触发外键约束
   await prisma.user.updateMany({ data: { defaultLedgerId: null } });
 
-  // 2. 子表优先：预备 → 记录 → 邀请 / 成员 / 联系人 → 账本
+  // 2. 子表优先：人生大事 / 预备 → 记录 → 邀请 / 成员 / 联系人 → 账本
+  await prisma.lifeEvent.deleteMany({});
   await prisma.giftPlan.deleteMany({});
   await prisma.record.deleteMany({});
   await prisma.invite.deleteMany({});
@@ -385,6 +386,71 @@ async function seed() {
       },
     });
   }
+
+  // 演示：两场人生大事，并把对应场景的收礼挂上去
+  const EVENT_SEEDS = [
+    {
+      id: "evt_a_001",
+      ledgerId: "led_zhang",
+      title: "我的婚礼",
+      scene: "WEDDING" as const,
+      occurredAt: "2025-05-20",
+      location: "老家县城",
+      note: "办了 20 桌，主要是双方亲戚",
+    },
+    {
+      id: "evt_a_002",
+      ledgerId: "led_zhang",
+      title: "小女满月",
+      scene: "BABY_FULL_MONTH" as const,
+      occurredAt: "2026-08-16",
+      location: "城南酒店",
+      note: "只请了至亲，办了 6 桌",
+    },
+  ];
+
+  for (const event of EVENT_SEEDS) {
+    await prisma.lifeEvent.upsert({
+      where: { id: event.id },
+      create: {
+        id: event.id,
+        ledgerId: event.ledgerId,
+        title: event.title,
+        scene: event.scene,
+        occurredAt: toDate(event.occurredAt),
+        location: event.location,
+        note: event.note,
+        hosted: true,
+      },
+      update: {
+        title: event.title,
+        scene: event.scene,
+        occurredAt: toDate(event.occurredAt),
+        location: event.location,
+        note: event.note,
+        deletedAt: null,
+      },
+    });
+  }
+
+  await prisma.record.updateMany({
+    where: {
+      ledgerId: "led_zhang",
+      direction: "RECEIVED",
+      scene: "WEDDING",
+      deletedAt: null,
+    },
+    data: { eventId: "evt_a_001" },
+  });
+  await prisma.record.updateMany({
+    where: {
+      ledgerId: "led_zhang",
+      direction: "RECEIVED",
+      scene: "BABY_FULL_MONTH",
+      deletedAt: null,
+    },
+    data: { eventId: "evt_a_002" },
+  });
 
   for (const invite of INVITES) {
     await prisma.invite.upsert({

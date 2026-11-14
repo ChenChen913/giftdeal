@@ -1,6 +1,6 @@
 # 礼金账本（giftdeal）
 
-以人为中心的双向礼金对账后端。记录家庭成员与某位亲友之间的送出 / 收到礼金，支持按人聚合、净差额计算、待回礼筛选、账本共享。
+以人为中心的双向礼金对账应用。记录家庭成员与某位亲友之间的送出 / 收到礼金，支持按人聚合、净差额计算、待回礼筛选、账本共享；另有「人生大事」时间线，把一场婚礼、一次满月收的几十笔礼金汇总成一张单子。
 
 **当前状态**：全栈 MVP 已完成。接口冒烟 **69 项全过**，前端按 Warm Accord 设计系统实现并通过浏览器交互回归。界面默认开启隐私遮罩。
 
@@ -17,6 +17,7 @@
 | 登录 | `/login` | 手机号 + 验证码，首次验证自动开通账簿 |
 | 首页看板 | `/` | 待回礼横幅、收发合计、净差额、人情预备区块、亲友往来册（人群 / 礼金 / 时序 / 方向四维筛选）、场景分布 |
 | 人情对账 | `/contacts` · `/contacts/[id]` | 名录 + 单人双向往来时间线 |
+| 人生大事 | `/events` · `/events/[id]` | 以个人为中心的时间线：婚礼、满月、寿宴等，每场汇总收礼总额、笔数、参与亲友与明细 |
 | 待回礼清单 | `/pending` | 待还时长排序、逐笔标记已还、行内去记还礼 |
 | 人情预备 | `/plans` | 未来已知的红白事提前备礼：新增 / 修改 / 删除 / 完成（可同时记一笔），首页有汇总区块 |
 | 家庭共享 | `/ledger` | 账本信息、成员、邀请链接、多账本切换 |
@@ -227,6 +228,7 @@ await authClient.phoneNumber.verify({ phoneNumber: "+8613800000001", code: "1234
 | 导出 | `GET /export`（需先解锁隐私模式） |
 | 联系人 | `GET/POST /contacts`、`GET/PATCH/DELETE /contacts/{id}`、`GET /contacts/{id}/settlement` |
 | 记录 | `GET/POST /records`、`GET/PATCH/DELETE /records/{id}`、`POST /records/{id}/settle`、`POST /records/{id}/unsettle` |
+| 人生大事 | `GET/POST /events`、`GET/PATCH/DELETE /events/{id}` |
 | 待回礼 | `GET /pending-returns` |
 | 人情预备 | `GET/POST /plans`、`GET/PATCH/DELETE /plans/{id}`、`POST /plans/{id}/complete` |
 | 隐私模式 | `GET /privacy/status`、`POST /privacy/verify`、`POST /privacy/lock` |

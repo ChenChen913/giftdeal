@@ -76,6 +76,8 @@ export type RecordItem = {
   settledAt: string | null;
   settledByRecordId: string | null;
   settlesRecordId: string | null;
+  /** 关联的人生大事；未归类时为 null */
+  eventId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -103,7 +105,6 @@ export type SceneBreakdownItem = {
 };
 
 export type PlanStatus = "PLANNED" | "DONE";
-
 export type Plan = {
   id: string;
   ledgerId: string;
@@ -122,6 +123,39 @@ export type Plan = {
   recordId: string | null;
   completedAt: string | null;
   createdAt: string;
+};
+
+/** 一场人生大事的收送汇总 */
+export type EventSummary = {
+  givenTotalCents: number;
+  receivedTotalCents: number;
+  netCents: number;
+  recordCount: number;
+  /** 参与过这场事的亲友人数（去重） */
+  participantCount: number;
+  /** 单笔最大收礼 */
+  maxReceivedCents: number;
+};
+
+/** 人生大事：婚礼、满月、百岁、白事…… */
+export type LifeEvent = {
+  id: string;
+  ledgerId: string;
+  title: string;
+  scene: GiftScene;
+  sceneLabel: string;
+  occurredAt: string;
+  location: string | null;
+  note: string | null;
+  hosted: boolean;
+  createdAt: string;
+  updatedAt: string;
+  summary: EventSummary;
+};
+
+export type EventDetail = {
+  event: LifeEvent;
+  records: RecordItem[];
 };
 
 export type Overview = {

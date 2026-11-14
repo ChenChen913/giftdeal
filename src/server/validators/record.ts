@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { GIFT_SCENES, LIMITS, RECORD_DIRECTIONS } from "@/lib/constants";
 
-import { amountCentsSchema, atLeastOneField, occurredAtSchema, optionalText } from "./common";
+import { amountCentsSchema, atLeastOneField, idSchema, occurredAtSchema, optionalText } from "./common";
 
 const note = optionalText(LIMITS.noteMax, "备注");
 
@@ -16,6 +16,8 @@ export const createRecordSchema = z
     note,
     settlesRecordId: z.string().trim().min(1).max(64).optional(),
     settled: z.boolean().optional(),
+    /** 关联的人生大事，可选 */
+    eventId: idSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (value.settlesRecordId && value.direction !== "GIVEN") {
@@ -47,6 +49,8 @@ export const updateRecordSchema = atLeastOneField(
     scene: z.enum(GIFT_SCENES).optional(),
     occurredAt: occurredAtSchema.optional(),
     note,
+    /** null 表示解除与事件的关联 */
+    eventId: idSchema.nullable().optional(),
   }),
   "至少提供一个待更新字段",
 );

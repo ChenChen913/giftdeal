@@ -78,6 +78,17 @@ export async function createRecord(ctx: LedgerContext, input: CreateRecordInput)
   });
   if (!contact) throw new AppError("NOT_FOUND");
 
+  // 事件必须属于本账本，避免把记录挂到别人的事件上
+  let eventId: string | null = null;
+  if (input.eventId) {
+    const event = await prisma.lifeEvent.findFirst({
+      where: { id: input.eventId, ledgerId: ctx.ledgerId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!event) throw new AppError("NOT_FOUND", undefined, "关联的事件不存在");
+    eventId = event.id;
+  }
+
   const baseData = {
     ledgerId: ctx.ledgerId,
     contactId: input.contactId,
@@ -87,6 +98,7 @@ export async function createRecord(ctx: LedgerContext, input: CreateRecordInput)
     occurredAt: parseDateOnly(input.occurredAt),
     note: input.note ?? null,
     createdById: ctx.userId,
+    eventId,
   };
 
   // 场景一：不关联结清（含「创建即已结清」的补录）
@@ -142,6 +154,14 @@ export async function updateRecord(
   });
   if (!existing) throw new AppError("NOT_FOUND");
 
+  if (input.eventId) {
+    const event = await prisma.lifeEvent.findFirst({
+      where: { id: input.eventId, ledgerId: ctx.ledgerId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!event) throw new AppError("NOT_FOUND", undefined, "关联的事件不存在");
+  }
+
   const row = await prisma.record.update({
     where: { id: recordId },
     data: {
@@ -151,6 +171,7 @@ export async function updateRecord(
         ? { occurredAt: parseDateOnly(input.occurredAt) }
         : {}),
       ...(input.note !== undefined ? { note: input.note } : {}),
+      ...(input.eventId !== undefined ? { eventId: input.eventId } : {}),
     },
     include: recordInclude,
   });

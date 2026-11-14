@@ -13,7 +13,7 @@ import {
 import { api, ApiError } from "@/lib/api";
 import { todayLocalDateOnly } from "@/lib/date";
 import { formatDate } from "@/lib/format";
-import type { Contact, PageResult, RecordDirection, RecordItem } from "@/lib/types";
+import type { Contact, LifeEvent, PageResult, RecordDirection, RecordItem } from "@/lib/types";
 import { useLedger, usePrivacy, useToast } from "./providers";
 import { Icon } from "./icons";
 import { Modal, Spinner } from "./ui";
@@ -69,6 +69,8 @@ export function RecordDialogProvider({ children }: { children: ReactNode }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactQuery, setContactQuery] = useState("");
+  const [events, setEvents] = useState<LifeEvent[]>([]);
+  const [eventId, setEventId] = useState("");
   const [creatingContact, setCreatingContact] = useState(false);
   const [newContactName, setNewContactName] = useState("");
   const [newContactTag, setNewContactTag] = useState("");
@@ -94,6 +96,7 @@ export function RecordDialogProvider({ children }: { children: ReactNode }) {
     setSettlesRecordId("");
     setForcedTarget(null);
     setContactQuery("");
+    setEventId("");
     setCreatingContact(false);
     setNewContactName("");
     setNewContactTag("");
@@ -153,6 +156,22 @@ export function RecordDialogProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(timer);
     };
   }, [open, ledgerId, options.contactId, contactQuery]);
+
+  // 打开时拉人生大事，供「归到哪件大事」下拉使用
+  useEffect(() => {
+    if (!open || !ledgerId) return;
+    let cancelled = false;
+    api<PageResult<LifeEvent>>("/api/v1/events?pageSize=100", { ledgerId })
+      .then((data) => {
+        if (!cancelled) setEvents(data.items);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, ledgerId]);
 
   // 送出时拉该联系人未结清的收礼，用于关联结清
   useEffect(() => {
@@ -250,6 +269,7 @@ export function RecordDialogProvider({ children }: { children: ReactNode }) {
             occurredAt,
             note: note.trim() || undefined,
             settlesRecordId: settlesRecordId || undefined,
+            eventId: eventId || undefined,
           },
         });
         toast(
@@ -455,6 +475,27 @@ export function RecordDialogProvider({ children }: { children: ReactNode }) {
             ))}
           </div>
         </div>
+
+        {target === "record" && events.length > 0 ? (
+          <div className="field">
+            <span className="label">归到哪件大事（可选）</span>
+            <select
+              className="select"
+              value={eventId}
+              onChange={(event) => setEventId(event.target.value)}
+            >
+              <option value="">不归类</option>
+              {events.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {formatDate(item.occurredAt)} · {item.title}
+                </option>
+              ))}
+            </select>
+            <span className="field-hint">
+              选中后，这笔礼金会汇总到「人生大事」里那一场事的账下。
+            </span>
+          </div>
+        ) : null}
 
         {direction === "GIVEN" && target === "record" && pendingTargets.length > 0 ? (
           <div className="field">

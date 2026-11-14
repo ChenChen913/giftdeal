@@ -170,6 +170,7 @@ model Ledger {
   records     Record[]
   invites     Invite[]
   plans       GiftPlan[]
+  events      LifeEvent[]
 
   /// 反向关系：把本账本设为默认账本的用户
   defaultForUsers User[] @relation("UserDefaultLedger")
@@ -242,6 +243,9 @@ model Record {
 
   createdById String? @map("created_by_id")
 
+  /// 关联的人生大事（可选）。一场婚礼下会挂多条收礼记录。
+  eventId String? @map("event_id")
+
   /// 软删除标记。删除后不计入任何列表与统计。
   deletedAt DateTime? @map("deleted_at")
 
@@ -251,6 +255,9 @@ model Record {
   ledger  Ledger  @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
   createdBy User? @relation("RecordCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  /// 所属的人生大事
+  event LifeEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
 
   /// 自关联：本记录（收到）由哪条送出记录结清
   settledByRecord Record? @relation("RecordSettlement", fields: [settledByRecordId], references: [id], onDelete: SetNull)
@@ -264,6 +271,7 @@ model Record {
   @@index([ledgerId, direction, settledAt])
   @@index([ledgerId, occurredAt])
   @@index([ledgerId, deletedAt])
+  @@index([ledgerId, eventId])
   @@map("record")
 }
 
@@ -336,4 +344,36 @@ model GiftPlan {
   @@index([ledgerId, contactId])
   @@index([ledgerId, deletedAt])
   @@map("gift_plan")
+}
+
+/// 人生大事：一场婚礼、一次满月酒、一场寿宴……
+/// 礼金记录可以挂到某场事件下，用来回答「这场事收了多少、都有谁」。
+model LifeEvent {
+  id       String @id @default(cuid())
+  ledgerId String @map("ledger_id")
+
+  title String    @db.VarChar(50)
+  scene GiftScene @default(OTHER)
+
+  /// 事情发生的自然日
+  occurredAt DateTime @map("occurred_at") @db.Date
+
+  location String? @db.VarChar(100)
+  note     String? @db.VarChar(200)
+
+  /// 是否为我方主办。主办的事以收礼为主；参加别人的事记成 GIVEN 即可，不必建事件。
+  hosted Boolean @default(true)
+
+  /// 软删除：删掉的事件不再出现在时间线，其记录会解除关联
+  deletedAt DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ledger  Ledger   @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  records Record[]
+
+  @@index([ledgerId, occurredAt])
+  @@index([ledgerId, deletedAt])
+  @@map("life_event")
 }

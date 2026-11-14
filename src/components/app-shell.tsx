@@ -38,6 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nav: NavItem[] = [
     { href: "/", label: "首页看板", icon: "home" },
     { href: "/contacts", label: "人情对账", icon: "swap" },
+    { href: "/events", label: "人生大事", icon: "calendar" },
     { href: "/pending", label: "待回礼清单", icon: "gift", badge: pendingCount },
     { href: "/plans", label: "人情预备", icon: "sparkle", badge: planCount },
     { href: "/ledger", label: "家庭共享", icon: "users" },

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
 import { GIFT_SCENES, SCENE_LABELS, type GiftScene } from "@/lib/constants";
-import type { RecordItem } from "@/lib/types";
+import { formatDate } from "@/lib/format";
+import type { LifeEvent, PageResult, RecordItem } from "@/lib/types";
 import { Icon } from "./icons";
 import { usePrivacy, useToast } from "./providers";
 import { Modal, Spinner } from "./ui";
@@ -29,6 +30,8 @@ export function RecordEditDialog({ record, ledgerId, onClose, onChanged }: Commo
   const [scene, setScene] = useState<GiftScene>("WEDDING");
   const [occurredAt, setOccurredAt] = useState("");
   const [note, setNote] = useState("");
+  const [events, setEvents] = useState<LifeEvent[]>([]);
+  const [eventId, setEventId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,9 +41,25 @@ export function RecordEditDialog({ record, ledgerId, onClose, onChanged }: Commo
     setScene(record.scene);
     setOccurredAt(record.occurredAt);
     setNote(record.note ?? "");
+    setEventId(record.eventId ?? "");
     setError(null);
     setSaving(false);
   }, [record]);
+
+  useEffect(() => {
+    if (!record || !ledgerId) return;
+    let cancelled = false;
+    api<PageResult<LifeEvent>>("/api/v1/events?pageSize=100", { ledgerId })
+      .then((data) => {
+        if (!cancelled) setEvents(data.items);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [record, ledgerId]);
 
   const submit = async () => {
     if (!record) return;
@@ -66,6 +85,7 @@ export function RecordEditDialog({ record, ledgerId, onClose, onChanged }: Commo
           scene,
           occurredAt,
           note: note.trim() || null,
+          eventId: eventId || null,
         },
       });
       toast("这笔礼金已更新");
@@ -140,6 +160,24 @@ export function RecordEditDialog({ record, ledgerId, onClose, onChanged }: Commo
               ))}
             </div>
           </div>
+
+          {events.length > 0 ? (
+            <div className="field">
+              <span className="label">归到哪件大事（可选）</span>
+              <select
+                className="select"
+                value={eventId}
+                onChange={(event) => setEventId(event.target.value)}
+              >
+                <option value="">不归类</option>
+                {events.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {formatDate(item.occurredAt)} · {item.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           <div className="row" style={{ gap: 12, alignItems: "flex-start" }}>
             <div className="field grow">

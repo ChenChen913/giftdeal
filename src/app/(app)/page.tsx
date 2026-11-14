@@ -10,7 +10,7 @@ import { useRecordDialog } from "@/components/record-dialog";
 import { Avatar, Donut, Empty, LoadingBlock } from "@/components/ui";
 import { api } from "@/lib/api";
 import {formatDate, netStance, SCENE_COLORS, SCENE_TONE} from "@/lib/format";
-import type { Contact, PageResult, PendingItem, PendingResult, Plan } from "@/lib/types";
+import type { Contact, LifeEvent, PageResult, PendingItem, PendingResult, Plan } from "@/lib/types";
 
 type SortKey = "recent" | "pending" | "net";
 
@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const [contactsTruncated, setContactsTruncated] = useState(false);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [events, setEvents] = useState<LifeEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
@@ -47,14 +48,16 @@ export default function DashboardPage() {
       api<PageResult<Contact>>("/api/v1/contacts?pageSize=500&sort=recent", { ledgerId }),
       api<PendingResult>("/api/v1/pending-returns?pageSize=3", { ledgerId }),
       api<PageResult<Plan>>("/api/v1/plans?status=PLANNED&pageSize=3", { ledgerId }),
+      api<PageResult<LifeEvent>>("/api/v1/events?pageSize=3", { ledgerId }),
     ])
-      .then(([contactPage, pendingPage, planPage]) => {
+      .then(([contactPage, pendingPage, planPage, eventPage]) => {
         if (cancelled) return;
         setContacts(contactPage.items);
         setContactTotal(contactPage.total);
         setContactsTruncated(contactPage.truncated ?? false);
         setPending(pendingPage.items);
         setPlans(planPage.items);
+        setEvents(eventPage.items);
       })
       .catch(() => undefined)
       .finally(() => {
@@ -277,6 +280,50 @@ export default function DashboardPage() {
                           ? `${plan.daysUntil} 天后`
                           : `已过 ${-plan.daysUntil} 天`}
                     </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {events.length > 0 ? (
+        <div className="card" style={{ overflow: "hidden" }}>
+          <div className="card-head">
+            <h2 className="section-title">人生大事</h2>
+            <span className="caption">{events.length} 件</span>
+            <Link href="/events" className="btn btn-quiet btn-sm" style={{ marginLeft: "auto" }}>
+              查看全部
+              <Icon name="chevronRight" size={14} />
+            </Link>
+          </div>
+
+          <div className="plan-strip">
+            {events.map((event) => (
+              <Link key={event.id} href={`/events/${event.id}`} className="plan-mini">
+                <div className="row" style={{ gap: 10 }}>
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div className="row" style={{ gap: 6 }}>
+                      <span className="title-sm" style={{ fontSize: 13 }}>
+                        {event.title}
+                      </span>
+                      <span
+                        className={`chip ${SCENE_TONE[event.scene]}`}
+                        style={{ height: 18 }}
+                      >
+                        {event.sceneLabel}
+                      </span>
+                    </div>
+                    <div className="caption" style={{ marginTop: 2 }}>
+                      {formatDate(event.occurredAt)} · {event.summary.participantCount} 位亲友
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", flex: "none" }}>
+                    <div className="mono" style={{ fontSize: 14 }}>
+                      {money(event.summary.receivedTotalCents)}
+                    </div>
+                    <div className="caption">收礼</div>
                   </div>
                 </div>
               </Link>
