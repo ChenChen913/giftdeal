@@ -12,6 +12,8 @@
  * 业务代码零改动。
  */
 
+import { TencentSmsProvider } from "./tencent";
+
 export interface OtpProvider {
   readonly name: string;
   send(phoneNumber: string, code: string): Promise<void>;
@@ -43,9 +45,15 @@ export const mockOtpCode = process.env.OTP_MOCK_CODE?.trim() || "123456";
 export function createOtpProvider(): OtpProvider {
   const provider = process.env.SMS_PROVIDER ?? "mock";
 
-  if (provider === "mock") return new MockOtpProvider();
-
-  throw new Error(`未知的 SMS_PROVIDER: ${provider}`);
+  switch (provider) {
+    case "mock":
+      return new MockOtpProvider();
+    case "tencent":
+      // 缺环境变量会在构造时直接抛错，让应用启动即失败，而不是等用户点「获取验证码」才暴露
+      return new TencentSmsProvider();
+    default:
+      throw new Error(`未知的 SMS_PROVIDER: ${provider}`);
+  }
 }
 
 export const otpProvider = createOtpProvider();

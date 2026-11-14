@@ -64,9 +64,13 @@ export const auth = betterAuth({
       otpLength: 6,
       expiresIn: 300,
       allowedAttempts: 3,
-      // 官方建议不要 await：发送失败只记日志，不阻塞登录请求
+      // 官方建议不要 await：发送失败只记日志，不阻塞登录请求。
+      // 但必须 catch，否则真实通道报错会变成 unhandled rejection。
       sendOTP: ({ phoneNumber: phone, code }) => {
-        void otpProvider.send(phone, code);
+        otpProvider.send(phone, code).catch((error) => {
+          const masked = phone.replace(/^\+86(\d{3})\d{4}(\d{4})$/, "$1****$2");
+          console.error(`[OTP] 发送失败 ${masked}`, error);
+        });
       },
       // 开发环境固定验证码，便于前端联调与自动化冒烟
       ...(isMockOtpEnabled

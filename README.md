@@ -4,7 +4,9 @@
 
 **当前状态**：全栈 MVP 已完成。接口冒烟 **69 项全过**，前端按 `礼尚往来/` 原型（Warm Accord 设计系统）实现并通过浏览器交互回归。界面默认开启隐私遮罩。
 
-![桌面看板](docs/screenshots/desktop-dashboard.png)
+<p align="center">
+  <img src="docs/screenshots/desktop-dashboard.png" alt="桌面看板" width="760" />
+</p>
 
 ---
 
@@ -23,18 +25,31 @@
 
 <table>
 <tr>
-<td><img src="docs/screenshots/desktop-reconcile.png" alt="人情对账" /></td>
-<td><img src="docs/screenshots/desktop-pending.png" alt="待回礼" /></td>
+<td width="50%"><img src="docs/screenshots/desktop-reconcile.png" alt="人情对账" width="100%" /></td>
+<td width="50%"><img src="docs/screenshots/desktop-pending.png" alt="待回礼" width="100%" /></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/mobile-dashboard.png" alt="移动端看板" /></td>
-<td><img src="docs/screenshots/login.png" alt="登录页" /></td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/privacy-dialog.png" alt="隐私密码解锁" /></td>
-<td><img src="docs/screenshots/record-to-plan.png" alt="记一笔按日期分流" /></td>
+<td width="50%"><img src="docs/screenshots/desktop-plans.png" alt="人情预备" width="100%" /></td>
+<td width="50%"><img src="docs/screenshots/login.png" alt="登录页" width="100%" /></td>
 </tr>
 </table>
+
+**移动端**
+
+<p align="center">
+  <img src="docs/screenshots/mobile-dashboard.png" alt="移动端看板" width="300" />
+</p>
+
+**交互细节**
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/privacy-dialog.png" alt="隐私密码解锁" width="100%" /></td>
+<td width="50%"><img src="docs/screenshots/record-to-plan.png" alt="记一笔按日期分流" width="100%" /></td>
+</tr>
+</table>
+
+> 截图均为演示数据，金额与姓名按隐私模式遮罩。
 
 设计沿用原型的「宣纸底 + 朱柿赤（收礼）/ 青黛墨蓝（送礼）」体系；净差额不用红绿涨跌，改用「承蒙厚爱 / 厚谊在彼 / 往还平衡」三种措辞。桌面三栏、平板图标轨、手机底部导航三套布局。
 
@@ -99,6 +114,9 @@ npm run dev
 | 内部账号 | 手机号框直接填 `admin` | 无需验证码，直接进入；需 `ALLOW_ADMIN_LOGIN=true` |
 
 > 手机号框只接受 11 位数字或 `admin` 这一个字母组合，其他字母和不合规号码会被输入框挡掉。
+>
+> **接真实短信**：`SMS_PROVIDER=tencent` 并填 5 个 `TENCENT_SMS_*` 变量即可，步骤见
+> [`docs/05-sms-setup.md`](docs/05-sms-setup.md)。代码已实现腾讯云 SendSms（零依赖，手写 TC3 签名）。
 
 ### 隐私模式（敏感信息默认遮罩）
 
@@ -178,6 +196,8 @@ docs/
   01-data-model.md       数据模型与删除策略
   02-api-contract.md     完整接口契约
   03-engineering.md      工程结构、认证流程、部署、前端实现
+  04-deploy-checklist.md 上线检查清单（环境变量、验证、回滚）
+  05-sms-setup.md        接入腾讯云短信的完整步骤
 scripts/smoke.mjs        接口冒烟测试
 ```
 
