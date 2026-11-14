@@ -1,0 +1,1048 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "primary": "#a62e1b",
+          "inverse-surface": "#34302c",
+          "secondary-fixed-dim": "#a0cbf1",
+          "on-surface-variant": "#59413d",
+          "surface-container-high": "#f0e6e1",
+          "on-primary-fixed-variant": "#8b1a09",
+          "on-tertiary-fixed": "#25190f",
+          "primary-container": "#c84630",
+          "outline-variant": "#e0bfb9",
+          "tertiary-fixed-dim": "#d8c3b2",
+          "on-primary": "#ffffff",
+          "on-secondary-container": "#315e7f",
+          "on-error": "#ffffff",
+          "on-tertiary-container": "#fff7f3",
+          "error-container": "#ffdad6",
+          "secondary": "#366284",
+          "surface-container": "#f5ece7",
+          "on-secondary-fixed": "#001e31",
+          "surface-variant": "#eae1dc",
+          "on-primary-container": "#fff7f6",
+          "inverse-primary": "#ffb4a6",
+          "on-primary-fixed": "#3f0300",
+          "outline": "#8c716b",
+          "on-secondary": "#ffffff",
+          "tertiary-container": "#816f60",
+          "inverse-on-surface": "#f8efea",
+          "surface-container-highest": "#eae1dc",
+          "on-tertiary-fixed-variant": "#534437",
+          "tertiary": "#675749",
+          "on-secondary-fixed-variant": "#1a4a6b",
+          "secondary-fixed": "#cbe6ff",
+          "primary-fixed-dim": "#ffb4a6",
+          "on-tertiary": "#ffffff",
+          "secondary-container": "#abd6fd",
+          "on-background": "#1f1b18",
+          "background": "#fff8f5",
+          "tertiary-fixed": "#f5decd",
+          "primary-fixed": "#ffdad3",
+          "on-error-container": "#93000a",
+          "surface-tint": "#ad321f",
+          "surface-dim": "#e1d8d3",
+          "surface": "#fff8f5",
+          "on-surface": "#1f1b18",
+          "surface-container-low": "#fbf2ed",
+          "surface-bright": "#fff8f5",
+          "surface-container-lowest": "#ffffff",
+          "error": "#ba1a1a"
+        },
+        "borderRadius": {
+          "DEFAULT": "0.25rem",
+          "lg": "0.5rem",
+          "xl": "0.75rem",
+          "full": "9999px"
+        },
+        "spacing": {
+          "space-lg": "1.5rem",
+          "gutter": "1.5rem",
+          "space-sm": "0.5rem",
+          "gutter-mobile": "0.75rem",
+          "margin-mobile": "1rem",
+          "margin": "2rem",
+          "space-xs": "0.25rem",
+          "space-xl": "2.5rem",
+          "space-md": "1rem"
+        },
+        "fontFamily": {
+          "headline-lg": [
+            "Plus Jakarta Sans"
+          ],
+          "label-amount-md": [
+            "JetBrains Mono"
+          ],
+          "label-amount-sm": [
+            "JetBrains Mono"
+          ],
+          "label-caption": [
+            "Plus Jakarta Sans"
+          ],
+          "display-lg-mobile": [
+            "Plus Jakarta Sans"
+          ],
+          "headline-lg-mobile": [
+            "Plus Jakarta Sans"
+          ],
+          "body-sm": [
+            "Plus Jakarta Sans"
+          ],
+          "label-amount-lg": [
+            "JetBrains Mono"
+          ],
+          "body-lg": [
+            "Plus Jakarta Sans"
+          ],
+          "body-md": [
+            "Plus Jakarta Sans"
+          ],
+          "display-lg": [
+            "Plus Jakarta Sans"
+          ],
+          "headline-md": [
+            "Plus Jakarta Sans"
+          ],
+          "headline-sm": [
+            "Plus Jakarta Sans"
+          ]
+        },
+        "fontSize": {
+          "headline-lg": [
+            "28px",
+            {
+              "lineHeight": "36px",
+              "letterSpacing": "-0.01em",
+              "fontWeight": "600"
+            }
+          ],
+          "label-amount-md": [
+            "18px",
+            {
+              "lineHeight": "24px",
+              "letterSpacing": "-0.02em",
+              "fontWeight": "500"
+            }
+          ],
+          "label-amount-sm": [
+            "13px",
+            {
+              "lineHeight": "16px",
+              "fontWeight": "500"
+            }
+          ],
+          "label-caption": [
+            "11px",
+            {
+              "lineHeight": "16px",
+              "letterSpacing": "0.04em",
+              "fontWeight": "500"
+            }
+          ],
+          "display-lg-mobile": [
+            "30px",
+            {
+              "lineHeight": "38px",
+              "letterSpacing": "-0.01em",
+              "fontWeight": "600"
+            }
+          ],
+          "headline-lg-mobile": [
+            "22px",
+            {
+              "lineHeight": "30px",
+              "fontWeight": "600"
+            }
+          ],
+          "body-sm": [
+            "12px",
+            {
+              "lineHeight": "18px",
+              "fontWeight": "400"
+            }
+          ],
+          "label-amount-lg": [
+            "28px",
+            {
+              "lineHeight": "34px",
+              "letterSpacing": "-0.03em",
+              "fontWeight": "500"
+            }
+          ],
+          "body-lg": [
+            "16px",
+            {
+              "lineHeight": "26px",
+              "fontWeight": "400"
+            }
+          ],
+          "body-md": [
+            "14px",
+            {
+              "lineHeight": "22px",
+              "fontWeight": "400"
+            }
+          ],
+          "display-lg": [
+            "40px",
+            {
+              "lineHeight": "48px",
+              "letterSpacing": "-0.02em",
+              "fontWeight": "600"
+            }
+          ],
+          "headline-md": [
+            "20px",
+            {
+              "lineHeight": "28px",
+              "fontWeight": "600"
+            }
+          ],
+          "headline-sm": [
+            "16px",
+            {
+              "lineHeight": "24px",
+              "fontWeight": "600"
+            }
+          ]
+        }
+      },
+    },
+  };</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="hidden md:flex fixed left-0 top-0 h-full w-64 bg-surface-container-low z-40 flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col p-space-md"><div class="flex items-center gap-space-sm mb-space-lg px-space-xs"><div class="w-8 h-8 rounded-lg overflow-hidden shrink-0 flex items-center justify-center shadow-sm"><img src="https://lh3.googleusercontent.com/aida/ALJJyrDZDtdR78VupBngxBxOnH0izngNCpXzYY8QHlCgH2d0EH9oB6q_CwHrdiQrbMcRK-kyRxJlaYDVgzxhCccnbN0hX7JdLqpyHGeAhSc7VcB01bqLldvnkfk_7cZf8CPS1NtmjsPkVFvXNNYKmdK701rjdeAo1mp4xvJSo6wtZsu6Kt3K7nsozO90HB5W5XXvCCalpwn_cGX1RNUVP-QPAQXrDa1H7_O3BPU4hgUnD00q1w" alt="礼尚往来 - 品牌Logo" class="w-full h-full object-cover"></div><span class="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">礼尚·人情账本</span></div><div class="mb-space-lg"><label class="font-label-caption text-label-caption text-outline uppercase tracking-wider block mb-space-xs px-space-xs">当前账本</label><div class="relative"><button class="w-full flex items-center justify-between bg-surface-container-lowest px-space-md py-space-sm rounded-lg shadow-[0_1px_8px_rgba(0,0,0,0.04)] text-left hover:bg-surface-container hover:text-on-surface transition-colors" type="button"><div class="flex items-center gap-space-sm"><span class="w-7 h-7 rounded-md bg-surface-container flex items-center justify-center text-primary shrink-0"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span><div class="flex flex-col"><span class="font-body-md text-body-md font-semibold text-on-surface leading-tight">我的小家庭</span><span class="font-body-sm text-body-sm text-outline">主家庭账簿</span></div></div><span class="w-7 h-7 rounded-md bg-surface-container flex items-center justify-center text-primary shrink-0"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span></button></div></div><div class="mb-space-md"><button class="w-full flex items-center justify-center gap-space-xs bg-primary text-on-primary py-space-sm px-space-md rounded-lg font-headline-sm text-headline-sm font-medium shadow-[0_1px_8px_rgba(0,0,0,0.04)] hover:bg-primary-container transition-all" type="button"><span class="material-symbols-outlined text-lg">add_circle</span><span>记一笔</span></button></div><nav class="flex flex-col gap-space-xs" data-active-classes="bg-primary-container text-on-primary-container font-semibold"><a aria-current="page" class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg transition-colors bg-primary-container text-on-primary-container font-semibold" data-path="dashboard" href="#"><span class="material-symbols-outlined text-xl">dashboard</span><span>首页看板</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="reconciliation" href="#"><span class="material-symbols-outlined text-xl">sync_alt</span><span>人情对账</span></a><a class="flex items-center justify-between px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="pending-returns" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-xl">assignment_late</span><span>待回礼清单</span></div><span class="w-2 h-2 rounded-full bg-primary"></span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="family" href="#"><span class="material-symbols-outlined text-xl">diversity_3</span><span>家庭共享</span></a></nav></div><div class="p-space-md bg-surface-container-high/40"><div class="flex items-center justify-between"><div class="flex items-center gap-space-sm"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdP-EyrVR48dcndRHu70rnURPtbK4aAUBthP-AmHZOp0ilIdoRa94J4UwUIfhXr1s2uvrDVkXMMV7icjpsi1huBAuQzrHTxGe17ZbR24DnLn3Q6ZISSlY5uxMAUylrtdHEEvmzOxcoJv-NGwEKTG6sR6ud86Yovib7h4GNiklJMxkTX0KCu8fgl_-ugHRTz06nmib6QzIefQSnHsrpNhTwfhbrd3rt0I3ZNKAFceoi"><div class="flex flex-col"><span class="font-body-md text-body-md font-medium text-on-surface">林家明</span><span class="font-label-caption text-label-caption text-outline">户主账管人</span></div></div><button class="text-outline hover:text-on-surface p-space-xs rounded-lg hover:bg-surface-container transition-colors" title="退出登录" type="button"><span class="material-symbols-outlined text-lg">logout</span></button></div></div></aside><div class="md:pl-64 flex flex-col min-h-screen"><header class="fixed top-0 left-0 right-0 md:left-64 h-16 bg-surface/80 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 w-full px-space-md lg:px-space-lg flex items-center justify-between"><div class="md:hidden flex items-center gap-space-sm"><div class="w-7 h-7 rounded-md overflow-hidden shrink-0 flex items-center justify-center shadow-sm"><img src="https://lh3.googleusercontent.com/aida/ALJJyrDZDtdR78VupBngxBxOnH0izngNCpXzYY8QHlCgH2d0EH9oB6q_CwHrdiQrbMcRK-kyRxJlaYDVgzxhCccnbN0hX7JdLqpyHGeAhSc7VcB01bqLldvnkfk_7cZf8CPS1NtmjsPkVFvXNNYKmdK701rjdeAo1mp4xvJSo6wtZsu6Kt3K7nsozO90HB5W5XXvCCalpwn_cGX1RNUVP-QPAQXrDa1H7_O3BPU4hgUnD00q1w" alt="礼尚往来 - 品牌Logo" class="w-full h-full object-cover"></div><button class="flex items-center gap-space-xs bg-surface-container-lowest px-space-sm py-space-xs rounded-full shadow-[0_1px_8px_rgba(0,0,0,0.04)]" type="button"><svg class="w-3.5 h-3.5 text-primary shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg><span class="font-body-sm text-body-sm font-semibold text-on-surface">我的小家庭</span><svg class="w-3.5 h-3.5 text-primary shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></button></div><div class="hidden md:flex items-center gap-space-md"><span class="font-label-caption text-label-caption text-outline">二零二四 · 岁在甲辰</span></div><div class="flex items-center gap-space-sm"><button class="w-9 h-9 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="搜索记录" type="button"><span class="material-symbols-outlined text-xl">search</span></button><button class="relative w-9 h-9 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="系统通知" type="button"><span class="material-symbols-outlined text-xl">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary"></span></button><div class="md:hidden flex items-center ml-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdP-EyrVR48dcndRHu70rnURPtbK4aAUBthP-AmHZOp0ilIdoRa94J4UwUIfhXr1s2uvrDVkXMMV7icjpsi1huBAuQzrHTxGe17ZbR24DnLn3Q6ZISSlY5uxMAUylrtdHEEvmzOxcoJv-NGwEKTG6sR6ud86Yovib7h4GNiklJMxkTX0KCu8fgl_-ugHRTz06nmib6QzIefQSnHsrpNhTwfhbrd3rt0I3ZNKAFceoi"></div></div></div></header><main class="w-full pt-16 pb-20 md:pb-10 bg-surface flex-1"><div class="max-w-7xl mx-auto px-space-md lg:px-space-lg py-space-md" id="content-container"><div class="flex flex-col w-full relative">
+<!-- Top Priority Alert: Pending Returns & Occasion Notice -->
+<section class="mb-space-lg">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low p-space-md md:p-space-lg shadow-sm">
+<div class="absolute -right-12 -top-12 w-48 h-48 rounded-full bg-primary/5 pointer-events-none blur-2xl"></div>
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md relative z-10">
+<div class="flex items-start gap-space-md">
+<div class="w-12 h-12 rounded-xl bg-primary text-on-primary flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">assignment_late</span>
+</div>
+<div class="flex flex-col">
+<div class="flex flex-wrap items-center gap-space-xs mb-1">
+<span class="font-headline-sm text-headline-sm text-on-surface">礼尚往还 · 待回礼提醒</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-caption text-label-caption font-semibold">
+                3 笔人情待还
+              </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-1.5 flex-wrap">
+<span>预计近期需备礼金</span>
+<span class="font-label-amount-md text-label-amount-md font-semibold text-primary">¥3,200</span>
+<span class="hidden sm:inline text-outline">|</span>
+<span class="inline-flex items-center text-secondary font-medium">
+<span class="material-symbols-outlined text-base mr-1">event</span>
+                下周六表姑家儿子结婚，长辈处建言优先周全回礼
+              </span>
+</p>
+</div>
+</div>
+<div class="flex items-center gap-space-sm self-end lg:self-center shrink-0">
+<button class="px-space-md py-2 rounded-lg bg-surface-container-lowest text-on-surface font-body-sm text-body-sm hover:bg-surface-container transition-colors shadow-sm flex items-center gap-1.5" id="filter-pending-btn" type="button">
+<span class="material-symbols-outlined text-base text-outline">filter_list</span>
+<span>筛选待还人情</span>
+</button>
+<button class="px-space-md py-2 rounded-lg bg-primary text-on-primary font-body-sm text-body-sm font-medium hover:bg-primary-container transition-all shadow-sm flex items-center gap-1.5 active:scale-95" onclick="openDrawer('outbound', '李明华 (表姑)', '婚礼')" type="button">
+<span class="material-symbols-outlined text-base">outgoing_mail</span>
+<span>立即备礼</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Ledger Header Bar: Switcher & Quick Add Button -->
+<section class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-md mb-space-lg">
+<div class="flex items-center gap-space-sm">
+<div class="relative inline-block text-left" id="ledger-switcher-container">
+<button class="flex items-center gap-space-xs bg-surface-container-lowest px-space-md py-space-xs rounded-xl shadow-sm hover:bg-surface-container transition-colors" id="ledger-switch-btn" type="button">
+<span class="w-2.5 h-2.5 rounded-full bg-primary inline-block"></span>
+<span class="font-headline-md text-headline-md text-on-surface font-semibold" id="current-ledger-title">二零二四甲辰年 · 小家庭账簿</span>
+<span class="material-symbols-outlined text-outline text-lg ml-1">expand_more</span>
+</button>
+<!-- Dropdown Menu -->
+<div class="hidden absolute left-0 mt-2 w-72 rounded-xl bg-surface-container-lowest shadow-xl z-50 p-1.5 border-none" id="ledger-menu">
+<div class="p-2 text-outline font-label-caption text-label-caption">切换人情账本</div>
+<button class="w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between bg-surface-container text-on-surface" onclick="switchLedger('二零二四甲辰年 · 小家庭账簿', '42,800', '58,600', '+15,800')" type="button">
+<div>
+<p class="font-body-md text-body-md font-medium text-on-surface">小家庭账簿</p>
+<p class="font-body-sm text-body-sm text-outline">主账本 · 34 笔入账</p>
+</div>
+<span class="material-symbols-outlined text-primary text-base">check</span>
+</button>
+<button class="w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between hover:bg-surface-container text-on-surface-variant transition-colors" onclick="switchLedger('二零二三癸卯年 · 宗族旧账', '36,200', '39,000', '+2,800')" type="button">
+<div>
+<p class="font-body-md text-body-md font-medium">宗族往来旧簿 (2023)</p>
+<p class="font-body-sm text-body-sm text-outline">归档账本 · 29 笔往来</p>
+</div>
+<span class="material-symbols-outlined text-outline text-base">history</span>
+</button>
+<button class="w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between hover:bg-surface-container text-on-surface-variant transition-colors" onclick="switchLedger('长女升学礼专账', '12,500', '18,800', '+6,300')" type="button">
+<div>
+<p class="font-body-md text-body-md font-medium">长女升学礼专账</p>
+<p class="font-body-sm text-body-sm text-outline">专题账簿 · 2022</p>
+</div>
+<span class="material-symbols-outlined text-outline text-base">school</span>
+</button>
+</div>
+</div>
+<span class="hidden md:inline text-outline font-body-sm text-body-sm">· 纪事存礼，尚往来之道</span>
+</div>
+<!-- Right Primary CTA -->
+<div class="flex items-center gap-space-sm w-full sm:w-auto">
+<button class="flex-1 sm:flex-initial flex items-center justify-center gap-space-xs bg-surface-container-high text-on-surface px-space-md py-2.5 rounded-xl font-body-md text-body-md font-medium hover:bg-surface-dim transition-colors shadow-sm" onclick="openDrawer('inbound')" type="button">
+<span class="material-symbols-outlined text-primary text-lg">receipt_long</span>
+<span>收礼记入</span>
+</button>
+<button class="flex-1 sm:flex-initial flex items-center justify-center gap-space-xs bg-primary text-on-primary px-space-lg py-2.5 rounded-xl font-headline-sm text-headline-sm font-semibold hover:bg-primary-container shadow-md active:scale-98 transition-all" onclick="openDrawer('outbound')" type="button">
+<span class="material-symbols-outlined text-xl">add_circle</span>
+<span>记一笔礼金</span>
+</button>
+</div>
+</section>
+<!-- Dual-Direction Ledger Balance Cards (对账平衡卡组) -->
+<section class="grid grid-cols-1 md:grid-cols-12 gap-space-md mb-space-xl">
+<!-- Outbound (送礼/付出) -->
+<div class="md:col-span-4 rounded-xl bg-surface-container-lowest p-space-md lg:p-space-lg shadow-sm flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-shadow">
+<div class="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-secondary-container/20 blur-xl pointer-events-none"></div>
+<div>
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+<span class="font-body-md text-body-md font-medium text-secondary">累计送出 (礼金出账)</span>
+</div>
+<span class="px-2 py-0.5 rounded-md bg-secondary-fixed text-on-secondary-fixed font-label-caption text-label-caption">共 28 笔</span>
+</div>
+<div class="flex items-baseline gap-1 mt-2">
+<span class="font-body-md text-body-md text-secondary">¥</span>
+<span class="font-label-amount-lg text-label-amount-lg text-secondary font-bold" id="total-outbound">42,800</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm flex items-center justify-between text-outline font-body-sm text-body-sm">
+<span>主要去向：婚宴 / 满月</span>
+<span class="text-secondary font-medium">占 62%</span>
+</div>
+</div>
+<!-- Inbound (收礼/收入) -->
+<div class="md:col-span-4 rounded-xl bg-surface-container-lowest p-space-md lg:p-space-lg shadow-sm flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-shadow">
+<div class="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-primary-fixed/20 blur-xl pointer-events-none"></div>
+<div>
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+<span class="font-body-md text-body-md font-medium text-primary">累计收到 (随礼入账)</span>
+</div>
+<span class="px-2 py-0.5 rounded-md bg-primary-fixed text-on-primary-fixed font-label-caption text-label-caption">共 34 笔</span>
+</div>
+<div class="flex items-baseline gap-1 mt-2">
+<span class="font-body-md text-body-md text-primary">¥</span>
+<span class="font-label-amount-lg text-label-amount-lg text-primary font-bold" id="total-inbound">58,600</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm flex items-center justify-between text-outline font-body-sm text-body-sm">
+<span>主要来源：乔迁 / 寿筵</span>
+<span class="text-primary font-medium">占 54%</span>
+</div>
+</div>
+<!-- Reciprocal Balance Offset (净差额/人情往还态势) -->
+<div class="md:col-span-4 rounded-xl bg-surface-container-low p-space-md lg:p-space-lg shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-body-md text-body-md font-medium text-on-surface-variant">人情往还总态势</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface font-label-caption text-label-caption font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>人情盈余</span>
+</span>
+</div>
+<div class="flex items-baseline gap-1 mt-2">
+<span class="font-body-md text-body-md text-on-surface font-semibold" id="net-direction">+</span>
+<span class="font-body-md text-body-md text-on-surface">¥</span>
+<span class="font-label-amount-lg text-label-amount-lg text-on-surface font-bold tracking-tight" id="net-amount">15,800</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm bg-surface-container-lowest/80 rounded-lg p-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-outline text-base shrink-0">info</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">亲友厚意暂收多，岁晚喜筵宜适度备还</span>
+</div>
+</div>
+</section>
+<!-- Main Split Architecture: Center Contacts Stream vs Right Quick Analytics/Recents -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+<!-- Left/Center 8 Cols: Contacts & Reciprocal Balance Cards (以人为中心的对账流) -->
+<div class="lg:col-span-8 flex flex-col gap-space-md">
+<!-- Filter and Control Bar -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm bg-surface-container-lowest p-space-sm rounded-xl shadow-sm">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-lg">search</span>
+<input class="w-full bg-surface-container-low pl-9 pr-3 py-2 rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-outline" id="contact-search-input" placeholder="搜索亲友姓名、称谓、备注..." type="text">
+</div>
+<div class="flex items-center gap-space-xs shrink-0 overflow-x-auto pb-1 sm:pb-0">
+<button class="filter-tab px-3 py-1.5 rounded-lg bg-primary-fixed text-on-primary-fixed font-body-sm text-body-sm font-semibold transition-colors" data-sort="pending" type="button">待回礼优先</button>
+<button class="filter-tab px-3 py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container font-body-sm text-body-sm transition-colors" data-sort="frequency" type="button">往来频次</button>
+<button class="filter-tab px-3 py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container font-body-sm text-body-sm transition-colors" data-sort="balance" type="button">差额排序</button>
+</div>
+</div>
+<!-- Contact Cards List -->
+<div class="flex flex-col gap-space-sm" id="contact-card-list">
+<!-- Card 1: 张伟 (待回礼) -->
+<article class="contact-card group rounded-xl bg-surface-container-lowest p-space-md shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md" data-name="张伟" data-status="pending">
+<div class="flex items-start gap-space-sm">
+<div class="w-11 h-11 rounded-xl bg-primary-fixed text-on-primary-fixed font-headline-sm text-headline-sm font-bold flex items-center justify-center shrink-0">
+              张
+            </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">张伟</h3>
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-caption text-label-caption">大学同窗 · 挚友</span>
+<span class="px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-caption text-label-caption font-semibold">待回礼</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-1 flex items-center gap-2">
+<span>最近：2024.03.12 儿子满月</span>
+<span class="text-secondary">我方送出 ¥1,000</span>
+</p>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md self-stretch md:self-center pt-space-xs md:pt-0">
+<div class="flex flex-col text-right">
+<span class="font-label-caption text-label-caption text-outline">往来净额态势</span>
+<div class="flex items-baseline gap-1 justify-end">
+<span class="font-label-amount-md text-label-amount-md text-primary font-bold">+¥800</span>
+</div>
+<span class="font-body-sm text-body-sm text-primary">我方暂收多 · 待还礼</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="px-3 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-sm text-body-sm font-medium transition-colors" onclick="showLedgerDetail('张伟', '大学同窗 · 挚友', '+800')" type="button">
+                查明细
+              </button>
+<button class="p-2 rounded-lg bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface transition-colors" onclick="openDrawer('outbound', '张伟', '满月')" title="随礼一笔" type="button">
+<span class="material-symbols-outlined text-base">edit_note</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Card 2: 二舅 (我方多礼，对方待回) -->
+<article class="contact-card group rounded-xl bg-surface-container-lowest p-space-md shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md" data-name="二舅" data-status="outbound-high">
+<div class="flex items-start gap-space-sm">
+<div class="w-11 h-11 rounded-xl bg-secondary-fixed text-on-secondary-fixed font-headline-sm text-headline-sm font-bold flex items-center justify-center shrink-0">
+              舅
+            </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">二舅 (周正国)</h3>
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-caption text-label-caption">长辈 · 母舅</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-caption text-label-caption font-semibold">我方多礼</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-1 flex items-center gap-2">
+<span>最近：2024.01.20 乔迁新居</span>
+<span class="text-primary">收到随礼 ¥2,000</span>
+</p>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md self-stretch md:self-center pt-space-xs md:pt-0">
+<div class="flex flex-col text-right">
+<span class="font-label-caption text-label-caption text-outline">往来净额态势</span>
+<div class="flex items-baseline gap-1 justify-end">
+<span class="font-label-amount-md text-label-amount-md text-secondary font-bold">-¥1,200</span>
+</div>
+<span class="font-body-sm text-body-sm text-secondary">我方送出多 · 礼义深</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="px-3 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-sm text-body-sm font-medium transition-colors" onclick="showLedgerDetail('二舅 (周正国)', '长辈 · 母舅', '-1200')" type="button">
+                查明细
+              </button>
+<button class="p-2 rounded-lg bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface transition-colors" onclick="openDrawer('inbound', '二舅 (周正国)', '寿宴')" title="记入一笔" type="button">
+<span class="material-symbols-outlined text-base">edit_note</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Card 3: 李晓萌 (往来平衡) -->
+<article class="contact-card group rounded-xl bg-surface-container-lowest p-space-md shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md" data-name="李晓萌" data-status="balanced">
+<div class="flex items-start gap-space-sm">
+<div class="w-11 h-11 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed font-headline-sm text-headline-sm font-bold flex items-center justify-center shrink-0">
+              李
+            </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">李晓萌</h3>
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-caption text-label-caption">表亲 · 表妹</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-outline font-label-caption text-label-caption">往还平衡</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-1 flex items-center gap-2">
+<span>最近：2023.10.03 表妹大婚</span>
+<span class="text-secondary">我方送出 ¥2,000</span>
+</p>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md self-stretch md:self-center pt-space-xs md:pt-0">
+<div class="flex flex-col text-right">
+<span class="font-label-caption text-label-caption text-outline">往来净额态势</span>
+<div class="flex items-baseline gap-1 justify-end">
+<span class="font-label-amount-md text-label-amount-md text-on-surface font-bold">¥0</span>
+</div>
+<span class="font-body-sm text-body-sm text-outline">礼数相当 · 各相安</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="px-3 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-sm text-body-sm font-medium transition-colors" onclick="showLedgerDetail('李晓萌', '表亲 · 表妹', '0')" type="button">
+                查明细
+              </button>
+<button class="p-2 rounded-lg bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface transition-colors" onclick="openDrawer('outbound', '李晓萌', '满月')" title="随礼一笔" type="button">
+<span class="material-symbols-outlined text-base">edit_note</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Card 4: 陈伯 (白事丧仪) -->
+<article class="contact-card group rounded-xl bg-surface-container-lowest p-space-md shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md" data-name="陈伯" data-status="outbound-high">
+<div class="flex items-start gap-space-sm">
+<div class="w-11 h-11 rounded-xl bg-surface-variant text-on-surface-variant font-headline-sm text-headline-sm font-bold flex items-center justify-center shrink-0">
+              陈
+            </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">陈伯 (老邻里)</h3>
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-caption text-label-caption">长辈邻里</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant font-label-caption text-label-caption font-medium">白事奠仪</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-1 flex items-center gap-2">
+<span>最近：2023.08.15 白事(奠仪)</span>
+<span class="text-secondary">我方送出 ¥501 (单数)</span>
+</p>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md self-stretch md:self-center pt-space-xs md:pt-0">
+<div class="flex flex-col text-right">
+<span class="font-label-caption text-label-caption text-outline">往来净额态势</span>
+<div class="flex items-baseline gap-1 justify-end">
+<span class="font-label-amount-md text-label-amount-md text-on-surface font-bold">-¥501</span>
+</div>
+<span class="font-body-sm text-body-sm text-outline">奠仪单发 · 传统礼制</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="px-3 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-sm text-body-sm font-medium transition-colors" onclick="showLedgerDetail('陈伯 (老邻里)', '长辈邻里', '-501')" type="button">
+                查明细
+              </button>
+<button class="p-2 rounded-lg bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface transition-colors" onclick="openDrawer('outbound', '陈伯 (老邻里)', '白事')" title="记一笔" type="button">
+<span class="material-symbols-outlined text-base">edit_note</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Card 5: 王敏 (待回礼) -->
+<article class="contact-card group rounded-xl bg-surface-container-lowest p-space-md shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md" data-name="王敏" data-status="pending">
+<div class="flex items-start gap-space-sm">
+<div class="w-11 h-11 rounded-xl bg-primary-fixed text-on-primary-fixed font-headline-sm text-headline-sm font-bold flex items-center justify-center shrink-0">
+              王
+            </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">王敏</h3>
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-caption text-label-caption">业友 · 部门主管</span>
+<span class="px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-caption text-label-caption font-semibold">待回礼</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-1 flex items-center gap-2">
+<span>最近：2023.11.18 我家新婚大喜</span>
+<span class="text-primary">王敏随礼 ¥600</span>
+</p>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md self-stretch md:self-center pt-space-xs md:pt-0">
+<div class="flex flex-col text-right">
+<span class="font-label-caption text-label-caption text-outline">往来净额态势</span>
+<div class="flex items-baseline gap-1 justify-end">
+<span class="font-label-amount-md text-label-amount-md text-primary font-bold">+¥600</span>
+</div>
+<span class="font-body-sm text-body-sm text-primary">对方先随 · 择机奉还</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="px-3 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-sm text-body-sm font-medium transition-colors" onclick="showLedgerDetail('王敏', '业友 · 部门主管', '+600')" type="button">
+                查明细
+              </button>
+<button class="p-2 rounded-lg bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface transition-colors" onclick="openDrawer('outbound', '王敏', '婚礼')" title="随礼一笔" type="button">
+<span class="material-symbols-outlined text-base">edit_note</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+</div>
+<!-- Right 4 Cols: Occasion Heat & Quick Etiquette Guide (事由分类透视与礼俗锦囊) -->
+<div class="lg:col-span-4 flex flex-col gap-space-md">
+<!-- Visual Breakdown Card: Occasion Categories -->
+<div class="rounded-xl bg-surface-container-lowest p-space-md shadow-sm">
+<div class="flex items-center justify-between mb-space-md">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">礼俗场景分布</h3>
+<span class="font-label-caption text-label-caption text-outline">本年度总计</span>
+</div>
+<!-- Inline SVG Ring Chart -->
+<div class="flex items-center justify-center my-space-sm relative">
+<svg class="w-40 h-40 transform -rotate-90" viewBox="0 0 100 100">
+<!-- Background circle -->
+<circle class="text-surface-container-high" cx="50" cy="50" fill="transparent" r="38" stroke="currentColor" stroke-width="12"></circle>
+<!-- Wedding slice (45%) -->
+<circle class="text-primary-container" cx="50" cy="50" fill="transparent" r="38" stroke="currentColor" stroke-dasharray="107.4 238.8" stroke-dashoffset="0" stroke-width="12"></circle>
+<!-- Full Moon (25%) -->
+<circle class="text-tertiary-container" cx="50" cy="50" fill="transparent" r="38" stroke="currentColor" stroke-dasharray="59.7 238.8" stroke-dashoffset="-107.4" stroke-width="12"></circle>
+<!-- Funeral/Housewarming (30%) -->
+<circle class="text-secondary" cx="50" cy="50" fill="transparent" r="38" stroke="currentColor" stroke-dasharray="71.6 238.8" stroke-dashoffset="-167.1" stroke-width="12"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+<span class="font-label-caption text-label-caption text-outline">主要礼遇</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">婚娶喜筵</span>
+<span class="font-label-caption text-label-caption text-primary">45% 份额</span>
+</div>
+</div>
+<!-- Category Legends -->
+<div class="flex flex-col gap-2 mt-space-md">
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-container"></span>
+<span class="text-on-surface">婚嫁大喜 (21笔)</span>
+</div>
+<span class="font-label-amount-sm text-label-amount-sm font-medium text-on-surface">¥45,600</span>
+</div>
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-tertiary-container"></span>
+<span class="text-on-surface">满月百岁 (18笔)</span>
+</div>
+<span class="font-label-amount-sm text-label-amount-sm font-medium text-on-surface">¥24,800</span>
+</div>
+<div class="flex items-center justify-between text-body-sm font-body-sm">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+<span class="text-on-surface">乔迁寿宴 / 其它 (23笔)</span>
+</div>
+<span class="font-label-amount-sm text-label-amount-sm font-medium text-on-surface">¥31,000</span>
+</div>
+</div>
+</div>
+<!-- Etiquette Wisdom & Rice-Paper Note (礼数文抄) -->
+<div class="rounded-xl bg-surface-container-low p-space-md shadow-sm relative overflow-hidden">
+<div class="flex items-center gap-2 text-primary mb-2">
+<span class="material-symbols-outlined text-lg">auto_stories</span>
+<span class="font-headline-sm text-headline-sm font-semibold">人情往还随行锦囊</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed mb-space-sm">
+          “礼尚往来。往而不来，非礼也；来而不往，亦非礼也。” 随礼本为心意连结，宜遵古风，兼顾亲疏家境。
+        </p>
+<div class="p-3 bg-surface-container-lowest rounded-lg shadow-sm space-y-1.5">
+<div class="flex items-center gap-1.5 text-primary text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">lightbulb</span>
+<span>备礼常识：</span>
+</div>
+<p class="text-xs text-outline leading-tight">
+            喜庆吉筵宜成双（¥600, ¥888, ¥1000）；白事哀思定用单（¥501, ¥1001），示断无再续。
+          </p>
+</div>
+</div>
+<!-- Quick Family Co-management Member Snippet -->
+<div class="rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="flex -space-x-2 overflow-hidden">
+<div class="inline-block h-8 w-8 rounded-full ring-2 ring-surface bg-primary text-on-primary flex items-center justify-center text-xs font-bold">林</div>
+<div class="inline-block h-8 w-8 rounded-full ring-2 ring-surface bg-secondary text-on-secondary flex items-center justify-center text-xs font-bold">苏</div>
+</div>
+<div>
+<p class="font-body-sm text-body-sm font-semibold text-on-surface">共管家庭账簿</p>
+<p class="font-label-caption text-label-caption text-outline">林家明 与 苏晓敏 实时同步</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Interactive Slide-Over Drawer / Modal ("记一笔" 模态抽屉) -->
+<div class="fixed inset-0 bg-inverse-surface/40 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-0 pointer-events-none flex justify-end" id="drawer-backdrop">
+<!-- Drawer Sheet -->
+<div class="w-full max-w-lg bg-surface h-full shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-out overflow-y-auto" id="drawer-panel">
+<!-- Drawer Header -->
+<div class="sticky top-0 bg-surface/90 backdrop-blur-md px-space-md py-space-sm flex items-center justify-between shadow-sm z-20">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">history_edu</span>
+<h2 class="font-headline-md text-headline-md text-on-surface font-semibold" id="drawer-header-title">记一笔礼金往来</h2>
+</div>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-outline hover:text-on-surface transition-colors" onclick="closeDrawer()" type="button">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+</div>
+<!-- Drawer Form Body -->
+<form class="p-space-md lg:p-space-lg flex flex-col gap-space-md flex-1" id="ledger-form" onsubmit="handleFormSubmit(event)">
+<!-- 1. Direction Switcher (我方送出 vs 我方收到) -->
+<div>
+<label class="font-label-caption text-label-caption text-outline uppercase tracking-wider block mb-1.5">往来资金流向</label>
+<div class="grid grid-cols-2 p-1 bg-surface-container-low rounded-xl gap-1">
+<button class="py-2.5 rounded-lg flex items-center justify-center gap-1.5 font-headline-sm text-headline-sm font-semibold transition-all bg-secondary text-on-secondary shadow-sm" id="tab-outbound" onclick="setDirection('outbound')" type="button">
+<span class="material-symbols-outlined text-lg">call_made</span>
+<span>我方送出 (礼金出账)</span>
+</button>
+<button class="py-2.5 rounded-lg flex items-center justify-center gap-1.5 font-headline-sm text-headline-sm font-medium transition-all text-on-surface-variant hover:text-on-surface" id="tab-inbound" onclick="setDirection('inbound')" type="button">
+<span class="material-symbols-outlined text-lg">call_received</span>
+<span>我方收到 (随礼入账)</span>
+</button>
+</div>
+</div>
+<!-- 2. Contact Input & Quick Kinship Selector -->
+<div>
+<label class="font-label-caption text-label-caption text-outline uppercase tracking-wider block mb-1.5" for="contact-input">亲友联系人</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-3 text-outline text-lg">person</span>
+<input class="w-full bg-surface-container-lowest pl-9 pr-3 py-2.5 rounded-xl font-body-md text-body-md text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-outline" id="contact-input" placeholder="输入或搜索亲友姓名 (例: 张伟、二舅)" required="" type="text">
+</div>
+<!-- Kinship quick badges -->
+<div class="flex flex-wrap gap-1.5 mt-2">
+<button class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-caption text-label-caption hover:bg-surface-container transition-colors" onclick="fillContactRelation('长辈直系')" type="button">直系尊长</button>
+<button class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-caption text-label-caption hover:bg-surface-container transition-colors" onclick="fillContactRelation('表亲姻亲')" type="button">姻亲表戚</button>
+<button class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-caption text-label-caption hover:bg-surface-container transition-colors" onclick="fillContactRelation('同袍挚友')" type="button">同窗旧友</button>
+<button class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-caption text-label-caption hover:bg-surface-container transition-colors" onclick="fillContactRelation('职场业友')" type="button">同仁业友</button>
+</div>
+</div>
+<!-- 3. Occasion Chips (礼俗事由场景) -->
+<div>
+<label class="font-label-caption text-label-caption text-outline uppercase tracking-wider block mb-1.5">礼金事由场景</label>
+<div class="grid grid-cols-4 gap-2" id="occasion-container">
+<button class="occasion-chip active py-2 px-1 rounded-xl bg-primary text-on-primary font-body-sm text-body-sm font-semibold text-center transition-colors" onclick="selectOccasion('婚礼', this)" type="button">
+              婚礼喜宴
+            </button>
+<button class="occasion-chip py-2 px-1 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm text-center hover:bg-surface-container transition-colors" onclick="selectOccasion('满月', this)" type="button">
+              满月百岁
+            </button>
+<button class="occasion-chip py-2 px-1 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm text-center hover:bg-surface-container transition-colors" onclick="selectOccasion('白事', this)" type="button">
+              白事奠仪
+            </button>
+<button class="occasion-chip py-2 px-1 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm text-center hover:bg-surface-container transition-colors" onclick="selectOccasion('乔迁', this)" type="button">
+              乔迁新居
+            </button>
+<button class="occasion-chip py-2 px-1 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm text-center hover:bg-surface-container transition-colors" onclick="selectOccasion('寿宴', this)" type="button">
+              寿筵祝寿
+            </button>
+<button class="occasion-chip py-2 px-1 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm text-center hover:bg-surface-container transition-colors" onclick="selectOccasion('升学', this)" type="button">
+              升学及第
+            </button>
+<button class="occasion-chip py-2 px-1 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm text-center hover:bg-surface-container transition-colors" onclick="selectOccasion('探望', this)" type="button">
+              病痛问候
+            </button>
+<button class="occasion-chip py-2 px-1 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm text-center hover:bg-surface-container transition-colors" onclick="selectOccasion('其他', this)" type="button">
+              其他应酬
+            </button>
+</div>
+</div>
+<!-- 4. Cultural Etiquette Caution Callout (白事专属提示) -->
+<div class="hidden rounded-xl bg-surface-variant p-space-sm text-on-surface-variant transition-all" id="funeral-tip">
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-outline text-lg mt-0.5">sentiment_neutral</span>
+<div class="flex flex-col text-xs leading-relaxed">
+<span class="font-semibold text-on-surface flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-outline shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>华夏丧俗奠仪提示：</span>
+<span>白事帛金宜用单数（如 ¥501, ¥1001），切忌双数，寓意灾不重至、哀痛仅此一次。</span>
+</div>
+</div>
+</div>
+<!-- 5. Amount Input & Quick Steppers -->
+<div>
+<label class="font-label-caption text-label-caption text-outline uppercase tracking-wider block mb-1.5" for="amount-input">礼金金额</label>
+<div class="relative">
+<span class="absolute left-4 top-3 font-label-amount-lg text-label-amount-lg text-outline">¥</span>
+<input class="w-full bg-surface-container-lowest pl-10 pr-4 py-3 rounded-xl font-label-amount-lg text-label-amount-lg font-bold text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-surface-dim" id="amount-input" min="1" placeholder="0" required="" step="1" type="number">
+</div>
+<!-- Quick Amount Buttons -->
+<div class="grid grid-cols-4 gap-2 mt-2" id="quick-amount-buttons">
+<button class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors" onclick="setQuickAmount(200)" type="button">¥200</button>
+<button class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors" onclick="setQuickAmount(500)" type="button">¥500</button>
+<button class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors" onclick="setQuickAmount(1000)" type="button">¥1,000</button>
+<button class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors" onclick="setQuickAmount(2000)" type="button">¥2,000</button>
+</div>
+</div>
+<!-- 6. Date, Occasion Name & Note -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
+<div>
+<label class="font-label-caption text-label-caption text-outline uppercase tracking-wider block mb-1.5" for="date-input">往来日期</label>
+<input class="w-full bg-surface-container-lowest px-3 py-2 rounded-xl font-body-sm text-body-sm text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20" id="date-input" type="date">
+</div>
+<div>
+<label class="font-label-caption text-label-caption text-outline uppercase tracking-wider block mb-1.5" for="event-title">具体名目/事项</label>
+<input class="w-full bg-surface-container-lowest px-3 py-2 rounded-xl font-body-sm text-body-sm text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-outline" id="event-title" placeholder="如：林家明婚宴" type="text">
+</div>
+</div>
+<div>
+<label class="font-label-caption text-label-caption text-outline uppercase tracking-wider block mb-1.5" for="note-input">随附心意 / 附赠礼品说明</label>
+<input class="w-full bg-surface-container-lowest px-3 py-2 rounded-xl font-body-sm text-body-sm text-on-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-outline" id="note-input" placeholder="如：合随一份，金锁一对，另备红酒两瓶" type="text">
+</div>
+<!-- Action Footer -->
+<div class="sticky bottom-0 bg-surface/95 backdrop-blur-md pt-space-sm pb-space-sm mt-auto flex items-center gap-space-sm">
+<button class="flex-1 py-3 rounded-xl bg-surface-container-high text-on-surface font-body-md text-body-md font-medium hover:bg-surface-dim transition-colors" onclick="closeDrawer()" type="button">
+            取消
+          </button>
+<button class="flex-2 w-full py-3 rounded-xl bg-primary text-on-primary font-headline-sm text-headline-sm font-semibold hover:bg-primary-container shadow-md transition-all active:scale-98" type="submit">
+            确认记入礼簿
+          </button>
+</div>
+</form>
+</div>
+</div>
+<!-- Person Historical Detail Modal (查明细轻模态) -->
+<div class="fixed inset-0 bg-inverse-surface/40 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-0 pointer-events-none flex items-center justify-center p-4" id="detail-modal-backdrop">
+<div class="bg-surface rounded-2xl max-w-md w-full p-space-md shadow-2xl transform scale-95 transition-transform duration-300" id="detail-modal-content">
+<div class="flex items-center justify-between pb-space-sm mb-space-sm">
+<div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface" id="modal-person-name">张伟</h3>
+<p class="font-body-sm text-body-sm text-outline" id="modal-person-relation">大学同窗 · 挚友</p>
+</div>
+<button class="p-1 rounded-full text-outline hover:text-on-surface hover:bg-surface-container transition-colors" onclick="closeLedgerDetail()" type="button">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+</div>
+<div class="bg-surface-container-low p-space-sm rounded-xl mb-space-md flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-on-surface-variant">与我往还结余态势</span>
+<span class="font-headline-sm text-headline-sm font-bold text-primary" id="modal-balance-display">+¥800</span>
+</div>
+<div class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+<div class="p-2.5 rounded-lg bg-surface-container-lowest shadow-sm flex items-center justify-between">
+<div>
+<div class="font-body-sm text-body-sm font-semibold text-on-surface">2024.03.12 儿子满月</div>
+<div class="font-label-caption text-label-caption text-secondary">我方送出礼金</div>
+</div>
+<span class="font-label-amount-sm text-label-amount-sm font-bold text-secondary">-¥1,000</span>
+</div>
+<div class="p-2.5 rounded-lg bg-surface-container-lowest shadow-sm flex items-center justify-between">
+<div>
+<div class="font-body-sm text-body-sm font-semibold text-on-surface">2023.10.18 我家新婚庆典</div>
+<div class="font-label-caption text-label-caption text-primary">对方随大礼</div>
+</div>
+<span class="font-label-amount-sm text-label-amount-sm font-bold text-primary">+¥1,800</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex justify-end">
+<button class="w-full py-2.5 rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm font-medium hover:bg-surface-container-high transition-colors" onclick="closeLedgerDetail()" type="button">
+          知道了
+        </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Inline JavaScript Logic for UI Interactions -->
+<script>
+  // State
+  let currentDirection = 'outbound';
+  let currentOccasion = '婚礼';
+
+  // Set default date to today
+  document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('date-input');
+    if (dateInput) dateInput.value = today;
+
+    // Ledger Switcher Toggle
+    const switcherBtn = document.getElementById('ledger-switch-btn');
+    const switcherMenu = document.getElementById('ledger-menu');
+    if (switcherBtn && switcherMenu) {
+      switcherBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        switcherMenu.classList.toggle('hidden');
+      });
+      document.addEventListener('click', () => {
+        switcherMenu.classList.add('hidden');
+      });
+    }
+
+    // Filter Contacts by Search
+    const searchInput = document.getElementById('contact-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim().toLowerCase();
+        const cards = document.querySelectorAll('.contact-card');
+        cards.forEach(card => {
+          const text = card.textContent.toLowerCase();
+          card.style.display = text.includes(query) ? 'flex' : 'none';
+        });
+      });
+    }
+
+    // Filter Buttons logic
+    const filterTabs = document.querySelectorAll('.filter-tab');
+    filterTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        filterTabs.forEach(t => {
+          t.classList.remove('bg-primary-fixed', 'text-on-primary-fixed', 'font-semibold');
+          t.classList.add('text-on-surface-variant');
+        });
+        tab.classList.add('bg-primary-fixed', 'text-on-primary-fixed', 'font-semibold');
+        tab.classList.remove('text-on-surface-variant');
+
+        const sortMode = tab.dataset.sort;
+        const cards = document.querySelectorAll('.contact-card');
+        if (sortMode === 'pending') {
+          cards.forEach(card => {
+            card.style.display = card.dataset.status === 'pending' ? 'flex' : 'none';
+          });
+        } else {
+          cards.forEach(card => card.style.display = 'flex');
+        }
+      });
+    });
+
+    // Top banner pending button filter trigger
+    const filterPendingBtn = document.getElementById('filter-pending-btn');
+    if (filterPendingBtn) {
+      filterPendingBtn.addEventListener('click', () => {
+        const pendingTab = document.querySelector('.filter-tab[data-sort="pending"]');
+        if (pendingTab) pendingTab.click();
+        const list = document.getElementById('contact-card-list');
+        if (list) list.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  });
+
+  // Switch Current Ledger
+  function switchLedger(title, outbound, inbound, net) {
+    document.getElementById('current-ledger-title').textContent = title;
+    document.getElementById('total-outbound').textContent = outbound;
+    document.getElementById('total-inbound').textContent = inbound;
+    document.getElementById('net-amount').textContent = net.replace('+', '').replace('-', '');
+    document.getElementById('net-direction').textContent = net.startsWith('+') ? '+' : (net.startsWith('-') ? '-' : '');
+    document.getElementById('ledger-menu').classList.add('hidden');
+  }
+
+  // Drawer Open/Close
+  function openDrawer(direction = 'outbound', contact = '', occasion = '') {
+    const backdrop = document.getElementById('drawer-backdrop');
+    const panel = document.getElementById('drawer-panel');
+    
+    setDirection(direction);
+    if (contact) {
+      document.getElementById('contact-input').value = contact;
+    }
+    if (occasion) {
+      const chips = document.querySelectorAll('.occasion-chip');
+      chips.forEach(chip => {
+        if (chip.textContent.includes(occasion)) {
+          selectOccasion(occasion, chip);
+        }
+      });
+    }
+
+    backdrop.classList.remove('pointer-events-none');
+    backdrop.classList.remove('opacity-0');
+    backdrop.classList.add('opacity-100');
+    panel.classList.remove('translate-x-full');
+  }
+
+  function closeDrawer() {
+    const backdrop = document.getElementById('drawer-backdrop');
+    const panel = document.getElementById('drawer-panel');
+    backdrop.classList.remove('opacity-100');
+    backdrop.classList.add('opacity-0');
+    panel.classList.add('translate-x-full');
+    backdrop.classList.add('pointer-events-none');
+  }
+
+  // Direction Switcher
+  function setDirection(dir) {
+    currentDirection = dir;
+    const outboundBtn = document.getElementById('tab-outbound');
+    const inboundBtn = document.getElementById('tab-inbound');
+    const headerTitle = document.getElementById('drawer-header-title');
+
+    if (dir === 'outbound') {
+      outboundBtn.className = "py-2.5 rounded-lg flex items-center justify-center gap-1.5 font-headline-sm text-headline-sm font-semibold transition-all bg-secondary text-on-secondary shadow-sm";
+      inboundBtn.className = "py-2.5 rounded-lg flex items-center justify-center gap-1.5 font-headline-sm text-headline-sm font-medium transition-all text-on-surface-variant hover:text-on-surface";
+      headerTitle.textContent = "记一笔 · 我方送出礼金";
+    } else {
+      inboundBtn.className = "py-2.5 rounded-lg flex items-center justify-center gap-1.5 font-headline-sm text-headline-sm font-semibold transition-all bg-primary text-on-primary shadow-sm";
+      outboundBtn.className = "py-2.5 rounded-lg flex items-center justify-center gap-1.5 font-headline-sm text-headline-sm font-medium transition-all text-on-surface-variant hover:text-on-surface";
+      headerTitle.textContent = "记一笔 · 我方收到礼金";
+    }
+  }
+
+  // Occasion Selection and Funeral Rule Alert
+  function selectOccasion(occ, btn) {
+    currentOccasion = occ;
+    const chips = document.querySelectorAll('.occasion-chip');
+    chips.forEach(c => {
+      c.className = "occasion-chip py-2 px-1 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm text-center hover:bg-surface-container transition-colors";
+    });
+
+    if (occ === '白事') {
+      btn.className = "occasion-chip py-2 px-1 rounded-xl bg-surface-variant text-on-surface font-body-sm text-body-sm font-bold text-center";
+    } else {
+      btn.className = "occasion-chip py-2 px-1 rounded-xl bg-primary text-on-primary font-body-sm text-body-sm font-semibold text-center";
+    }
+
+    // Toggle Funeral Caution Banner & adjust quick values
+    const tip = document.getElementById('funeral-tip');
+    const quickAmountContainer = document.getElementById('quick-amount-buttons');
+    if (occ === '白事') {
+      tip.classList.remove('hidden');
+      quickAmountContainer.innerHTML = `
+        <button type="button" onclick="setQuickAmount(301)" class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors">¥301</button>
+        <button type="button" onclick="setQuickAmount(501)" class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors">¥501</button>
+        <button type="button" onclick="setQuickAmount(1001)" class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors">¥1,001</button>
+        <button type="button" onclick="setQuickAmount(2001)" class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors">¥2,001</button>
+      `;
+    } else {
+      tip.classList.add('hidden');
+      quickAmountContainer.innerHTML = `
+        <button type="button" onclick="setQuickAmount(200)" class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors">¥200</button>
+        <button type="button" onclick="setQuickAmount(500)" class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors">¥500</button>
+        <button type="button" onclick="setQuickAmount(1000)" class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors">¥1,000</button>
+        <button type="button" onclick="setQuickAmount(2000)" class="py-1.5 rounded-lg bg-surface-container-low text-on-surface font-label-amount-sm text-label-amount-sm hover:bg-surface-container transition-colors">¥2,000</button>
+      `;
+    }
+  }
+
+  // Quick Amount helper
+  function setQuickAmount(val) {
+    document.getElementById('amount-input').value = val;
+  }
+
+  function fillContactRelation(tag) {
+    const input = document.getElementById('contact-input');
+    if (!input.value.includes(`(${tag})`)) {
+      input.value = input.value ? `${input.value} (${tag})` : tag;
+    }
+  }
+
+  // Person ledger detail popup
+  function showLedgerDetail(name, rel, balance) {
+    document.getElementById('modal-person-name').textContent = name;
+    document.getElementById('modal-person-relation').textContent = rel;
+    const balEl = document.getElementById('modal-balance-display');
+    balEl.textContent = (balance.startsWith('+') || balance.startsWith('-') ? balance : '+' + balance) + '元';
+    if (balance.startsWith('-')) {
+      balEl.className = "font-headline-sm text-headline-sm font-bold text-secondary";
+    } else {
+      balEl.className = "font-headline-sm text-headline-sm font-bold text-primary";
+    }
+
+    const modalBackdrop = document.getElementById('detail-modal-backdrop');
+    const modalContent = document.getElementById('detail-modal-content');
+    modalBackdrop.classList.remove('pointer-events-none', 'opacity-0');
+    modalBackdrop.classList.add('opacity-100');
+    modalContent.classList.remove('scale-95');
+    modalContent.classList.add('scale-100');
+  }
+
+  function closeLedgerDetail() {
+    const modalBackdrop = document.getElementById('detail-modal-backdrop');
+    const modalContent = document.getElementById('detail-modal-content');
+    modalBackdrop.classList.remove('opacity-100');
+    modalBackdrop.classList.add('opacity-0');
+    modalContent.classList.remove('scale-100');
+    modalContent.classList.add('scale-95');
+    modalBackdrop.classList.add('pointer-events-none');
+  }
+
+  // Handle Form Submission (Mock)
+  function handleFormSubmit(e) {
+    e.preventDefault();
+    const contact = document.getElementById('contact-input').value;
+    const amount = document.getElementById('amount-input').value;
+    const note = document.getElementById('note-input').value || currentOccasion;
+
+    // Toast feedback / update DOM
+    alert(`礼簿已存入：${currentDirection === 'outbound' ? '送出' : '收到'} [${contact}] 礼金 ¥${amount} (${currentOccasion})`);
+    closeDrawer();
+  }
+</script></div></main><nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface/90 backdrop-blur-xl z-40 shadow-[0_1px_8px_rgba(0,0,0,0.04)] flex items-center justify-around px-space-xs"><a class="flex flex-col items-center justify-center text-on-surface-variant py-space-xs w-14" data-path="dashboard" href="#"><span class="material-symbols-outlined text-xl">dashboard</span><span class="font-label-caption text-label-caption mt-0.5">首页</span></a><a class="flex flex-col items-center justify-center text-on-surface-variant py-space-xs w-14" data-path="reconciliation" href="#"><span class="material-symbols-outlined text-xl">sync_alt</span><span class="font-label-caption text-label-caption mt-0.5">对账</span></a><div class="flex flex-col items-center justify-center -mt-5"><button class="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-[0_1px_8px_rgba(0,0,0,0.04)] active:scale-95 transition-transform" type="button"><span class="material-symbols-outlined text-2xl">add</span></button><span class="font-label-caption text-label-caption text-primary font-medium mt-1">记一笔</span></div><a class="relative flex flex-col items-center justify-center text-on-surface-variant py-space-xs w-14" data-path="pending-returns" href="#"><span class="material-symbols-outlined text-xl">assignment_late</span><span class="font-label-caption text-label-caption mt-0.5">待回礼</span><span class="absolute top-1 right-2 w-2 h-2 rounded-full bg-primary"></span></a><a class="flex flex-col items-center justify-center text-on-surface-variant py-space-xs w-14" data-path="family" href="#"><span class="material-symbols-outlined text-xl">diversity_3</span><span class="font-label-caption text-label-caption mt-0.5">家庭</span></a></nav></div>
+
+</body></html>

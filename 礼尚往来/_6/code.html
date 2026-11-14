@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..900&family=Plus+Jakarta+Sans:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface":"#fff8f5","primary-fixed-dim":"#ffb4a6","outline":"#8c716b","on-primary-container":"#fff7f6","tertiary-container":"#816f60","primary-container":"#c84630","primary":"#a62e1b","secondary-container":"#abd6fd","on-tertiary-container":"#fff7f3","surface-variant":"#eae1dc","on-primary-fixed":"#3f0300","on-background":"#1f1b18","on-primary-fixed-variant":"#8b1a09","tertiary-fixed-dim":"#d8c3b2","secondary-fixed":"#cbe6ff","on-tertiary-fixed":"#25190f","primary-fixed":"#ffdad3","surface-container-highest":"#eae1dc","on-primary":"#ffffff","inverse-on-surface":"#f8efea","tertiary":"#675749","surface-container-low":"#fbf2ed","surface-bright":"#fff8f5","surface-dim":"#e1d8d3","outline-variant":"#e0bfb9","error-container":"#ffdad6","surface-container":"#f5ece7","on-surface":"#1f1b18","inverse-surface":"#34302c","on-secondary-fixed-variant":"#1a4a6b","on-secondary-container":"#315e7f","surface-container-high":"#f0e6e1","on-tertiary-fixed-variant":"#534437","surface-tint":"#ad321f","on-error-container":"#93000a","inverse-primary":"#ffb4a6","error":"#ba1a1a","tertiary-fixed":"#f5decd","on-surface-variant":"#59413d","secondary":"#366284","background":"#fff8f5","on-error":"#ffffff","secondary-fixed-dim":"#a0cbf1","surface-container-lowest":"#ffffff","on-secondary":"#ffffff","on-tertiary":"#ffffff","on-secondary-fixed":"#001e31"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"space-xl":"2.5rem","space-xs":"0.25rem","space-sm":"0.5rem","space-lg":"1.5rem","space-md":"1rem","margin-mobile":"1rem","gutter":"1.5rem","margin":"2rem","gutter-mobile":"0.75rem"},fontFamily:{"headline-md":["Plus Jakarta Sans"],"body-lg":["Plus Jakarta Sans"],"display-lg-mobile":["Plus Jakarta Sans"],"label-amount-sm":["JetBrains Mono"],"headline-sm":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"label-caption":["Plus Jakarta Sans"],"headline-lg-mobile":["Plus Jakarta Sans"],"label-amount-md":["JetBrains Mono"],"display-lg":["Plus Jakarta Sans"],"label-amount-lg":["JetBrains Mono"],"body-sm":["Plus Jakarta Sans"]},fontSize:{"headline-md":["20px",{lineHeight:"28px",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"26px",fontWeight:"400"}],"display-lg-mobile":["30px",{lineHeight:"38px",letterSpacing:"-0.01em",fontWeight:"600"}],"label-amount-sm":["13px",{lineHeight:"16px",fontWeight:"500"}],"headline-sm":["16px",{lineHeight:"24px",fontWeight:"600"}],"body-md":["14px",{lineHeight:"22px",fontWeight:"400"}],"headline-lg":["28px",{lineHeight:"36px",letterSpacing:"-0.01em",fontWeight:"600"}],"label-caption":["11px",{lineHeight:"16px",letterSpacing:"0.04em",fontWeight:"500"}],"headline-lg-mobile":["22px",{lineHeight:"30px",fontWeight:"600"}],"label-amount-md":["18px",{lineHeight:"24px",letterSpacing:"-0.02em",fontWeight:"500"}],"display-lg":["40px",{lineHeight:"48px",letterSpacing:"-0.02em",fontWeight:"600"}],"label-amount-lg":["28px",{lineHeight:"34px",letterSpacing:"-0.03em",fontWeight:"500"}],"body-sm":["12px",{lineHeight:"18px",fontWeight:"400"}]}}}};</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-on-surface antialiased flex flex-col min-h-screen"><header class="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="h-16 px-margin-mobile flex items-center justify-between"><div class="flex items-center gap-space-sm"><div class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center shadow-[0_2px_6px_rgba(200,70,48,0.25)] flex-shrink-0"><span class="text-on-primary-container font-headline-sm text-headline-sm font-semibold tracking-widest pl-0.5">禮</span></div><div class="flex flex-col text-left"><span class="text-headline-sm font-headline-sm text-on-surface leading-tight tracking-tight">礼尚·人情账本</span><button class="flex items-center gap-0.5 text-on-surface-variant hover:text-primary transition-colors text-left -ml-0.5"><span class="font-label-caption text-label-caption tracking-normal text-tertiary">我的小家庭</span><span class="material-symbols-outlined text-[14px] text-tertiary">expand_more</span></button></div></div><div class="flex items-center gap-1"><button aria-label="搜索" class="w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[22px]">search</span></button><button aria-label="消息通知" class="relative w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-primary ring-2 ring-surface"></span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ml-1 flex-shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex flex-col relative w-full px-margin-mobile pt-16 pb-28 bg-surface min-h-screen"><div class="flex flex-col w-full space-y-space-md">
+<!-- 1. 顶部账本概览与切换器卡片 -->
+<section class="bg-surface-container rounded-xl p-space-md shadow-sm relative overflow-hidden">
+<div class="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-primary-container/5 pointer-events-none flex items-center justify-center">
+<span class="material-symbols-outlined text-[72px] text-primary/10 select-none">auto_stories</span>
+</div>
+<!-- 标题与切换下拉 -->
+<div class="flex items-center justify-between relative z-10">
+<div class="flex items-center gap-space-xs">
+<div class="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0"></div>
+<span class="font-headline-sm text-headline-sm text-on-surface">当前主账本</span>
+<span class="font-label-caption text-label-caption px-2 py-0.5 rounded-full bg-surface text-tertiary">LEDGER-8821</span>
+</div>
+<button class="flex items-center gap-0.5 px-2.5 py-1 rounded-full bg-surface text-on-surface hover:bg-surface-container-high transition-colors shadow-sm" id="toggleLedgerBtn">
+<span class="font-body-sm text-body-sm text-on-surface-variant font-medium">切簿</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">swap_horiz</span>
+</button>
+</div>
+<!-- 账簿名称与印信 -->
+<div class="mt-space-sm flex items-baseline justify-between relative z-10">
+<div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface tracking-tight">我的小家庭</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">立簿于 甲辰岁末 · 夫妻协力 人情有序</p>
+</div>
+<div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-headline-sm text-headline-sm">
+        印
+      </div>
+</div>
+<!-- 核心统计 Bento -->
+<div class="grid grid-cols-3 gap-space-xs mt-space-md pt-space-sm border-t border-surface-variant/40 relative z-10">
+<div class="bg-surface/80 rounded-lg p-2.5 flex flex-col">
+<span class="font-label-caption text-label-caption text-tertiary">收录往来</span>
+<div class="flex items-baseline gap-0.5 mt-1">
+<span class="font-label-amount-md text-label-amount-md text-on-surface font-semibold">62</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">笔</span>
+</div>
+</div>
+<div class="bg-surface/80 rounded-lg p-2.5 flex flex-col">
+<span class="font-label-caption text-label-caption text-tertiary">共同协作者</span>
+<div class="flex items-baseline gap-0.5 mt-1">
+<span class="font-label-amount-md text-label-amount-md text-on-surface font-semibold">3</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">位家人</span>
+</div>
+</div>
+<div class="bg-surface/80 rounded-lg p-2.5 flex flex-col">
+<span class="font-label-caption text-label-caption text-tertiary">记账本币</span>
+<div class="flex items-baseline gap-0.5 mt-1">
+<span class="font-label-amount-md text-label-amount-md text-on-surface font-semibold">CNY</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">¥</span>
+</div>
+</div>
+</div>
+<!-- 关联附属账本快捷切入口 -->
+<div class="mt-space-sm pt-space-xs relative z-10">
+<button class="w-full flex items-center justify-between p-2.5 rounded-lg bg-surface/90 hover:bg-surface-container-high transition-colors text-left group">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[18px] text-secondary">family_restroom</span>
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm font-medium text-on-surface">附属账本：原生大家庭（父母与兄弟姐妹）</span>
+<span class="font-label-caption text-label-caption text-tertiary">宗族百岁婚丧礼簿 · 累计 128 笔人情记录</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[18px] text-tertiary group-hover:text-primary transition-colors">chevron_right</span>
+</button>
+</div>
+</section>
+<!-- 2. 邀请家人加入与共享管理模块 -->
+<section class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[20px] text-primary">diversity_1</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">添加家庭协作者</h3>
+</div>
+<span class="font-label-caption text-label-caption text-tertiary px-2 py-0.5 rounded-full bg-surface-container-high">多端实时同步</span>
+</div>
+<!-- 面对面与微信邀请卡片 -->
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col items-center text-center relative overflow-hidden">
+<!-- 模拟高品质印信二维码 -->
+<div class="relative p-3 bg-surface rounded-xl shadow-sm mb-space-sm">
+<svg class="w-36 h-36" fill="none" viewbox="0 0 100 100">
+<rect fill="#FFF8F5" height="100" rx="6" width="100"></rect>
+<!-- 模拟精准点阵码 -->
+<rect fill="#A62E1B" height="26" rx="4" width="26" x="8" y="8"></rect>
+<rect fill="#FFF8F5" height="18" rx="2" width="18" x="12" y="12"></rect>
+<rect fill="#A62E1B" height="10" rx="1" width="10" x="16" y="16"></rect>
+<rect fill="#A62E1B" height="26" rx="4" width="26" x="66" y="8"></rect>
+<rect fill="#FFF8F5" height="18" rx="2" width="18" x="70" y="12"></rect>
+<rect fill="#A62E1B" height="10" rx="1" width="10" x="74" y="16"></rect>
+<rect fill="#A62E1B" height="26" rx="4" width="26" x="8" y="66"></rect>
+<rect fill="#FFF8F5" height="18" rx="2" width="18" x="12" y="70"></rect>
+<rect fill="#A62E1B" height="10" rx="1" width="10" x="16" y="74"></rect>
+<!-- 模拟数据阵列 -->
+<rect fill="#34302C" height="6" width="6" x="38" y="10"></rect>
+<rect fill="#34302C" height="6" width="12" x="48" y="10"></rect>
+<rect fill="#34302C" height="6" width="10" x="38" y="20"></rect>
+<rect fill="#34302C" height="6" width="8" x="52" y="20"></rect>
+<rect fill="#34302C" height="10" width="6" x="10" y="38"></rect>
+<rect fill="#34302C" height="6" width="14" x="20" y="42"></rect>
+<rect fill="#C84630" height="24" rx="4" width="24" x="38" y="38"></rect>
+<circle cx="50" cy="50" fill="#FFF8F5" r="5"></circle>
+<rect fill="#34302C" height="6" width="8" x="66" y="38"></rect>
+<rect fill="#34302C" height="6" width="12" x="78" y="42"></rect>
+<rect fill="#34302C" height="8" width="18" x="66" y="52"></rect>
+<rect fill="#34302C" height="12" width="6" x="38" y="66"></rect>
+<rect fill="#34302C" height="6" width="12" x="48" y="72"></rect>
+<rect fill="#34302C" height="6" width="16" x="38" y="82"></rect>
+<rect fill="#34302C" height="8" width="12" x="66" y="66"></rect>
+<rect fill="#34302C" height="12" width="8" x="82" y="70"></rect>
+<rect fill="#34302C" height="6" width="20" x="70" y="82"></rect>
+</svg>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface font-medium">微信扫一扫 · 面对面受邀入簿</span>
+<p class="font-label-caption text-label-caption text-tertiary mt-0.5">仅限家庭成员绑定，享有人情账同步与回礼提醒</p>
+<!-- 专属邀请码与复制 -->
+<div class="mt-space-md w-full flex items-center justify-between bg-surface rounded-lg px-3 py-2">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-caption text-label-caption text-tertiary">家庭密钥</span>
+<span class="font-label-amount-sm text-label-amount-sm font-semibold tracking-wider text-primary" id="inviteCode">LISHANG-2024-FAMILY</span>
+</div>
+<button class="flex items-center gap-1 text-primary hover:text-on-primary-fixed-variant transition-colors" id="copyCodeBtn">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+<span class="font-body-sm text-body-sm font-medium">复制</span>
+</button>
+</div>
+<!-- 手机号直接添加 -->
+<div class="mt-space-sm w-full flex gap-space-xs">
+<div class="flex-1 relative flex items-center">
+<span class="material-symbols-outlined text-[18px] text-tertiary absolute left-3">phone_iphone</span>
+<input class="w-full pl-9 pr-3 py-2 rounded-lg bg-surface text-on-surface font-body-sm text-body-sm placeholder:text-tertiary-fixed-dim focus:outline-none focus:ring-1 focus:ring-primary/40" placeholder="输入家人手机号直接邀请" type="tel"/>
+</div>
+<button class="px-4 py-2 rounded-lg bg-primary-container text-on-primary-container font-body-sm text-body-sm font-medium active:scale-95 transition-transform flex items-center gap-1 shadow-sm">
+<span>邀请</span>
+<span class="material-symbols-outlined text-[16px]">send</span>
+</button>
+</div>
+</div>
+</section>
+<!-- 3. 家庭成员列表与权限分配 -->
+<section class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[20px] text-primary">group</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">账簿成员与权限</h3>
+</div>
+<span class="font-label-caption text-label-caption text-tertiary">已加入 3 人</span>
+</div>
+<div class="space-y-space-sm">
+<!-- 成员 1: 户主 (我) -->
+<div class="p-space-sm rounded-lg bg-surface flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-headline-sm text-headline-sm">
+              林
+            </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-body-md text-body-md font-semibold text-on-surface">林家明</span>
+<span class="px-1.5 py-0.2 rounded bg-primary-fixed-dim text-on-primary-fixed font-label-caption text-[10px]">我 · 户主</span>
+</div>
+<span class="font-label-caption text-label-caption text-tertiary">建簿人 · 拥有最高账目裁定权</span>
+</div>
+</div>
+<span class="font-label-caption text-label-caption px-2 py-1 rounded bg-surface-container text-tertiary">主管理员</span>
+</div>
+</div>
+<!-- 成员 2: 配偶 (记账员) -->
+<div class="p-space-sm rounded-lg bg-surface flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-full bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed font-headline-sm text-headline-sm">
+              苏
+            </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-body-md text-body-md font-semibold text-on-surface">苏婉容</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-variant text-on-surface-variant font-label-caption text-[10px]">配偶</span>
+</div>
+<span class="font-label-caption text-label-caption text-secondary">记账员 (可增删改账目)</span>
+</div>
+</div>
+<button class="flex items-center gap-0.5 px-2 py-1 rounded bg-surface-container text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high transition-colors">
+<span>权限</span>
+<span class="material-symbols-outlined text-[14px]">tune</span>
+</button>
+</div>
+<!-- 最近动态提示 -->
+<div class="mt-1 pt-2 border-t border-surface-container-high flex items-center justify-between">
+<div class="flex items-center gap-1 text-tertiary font-body-sm text-body-sm truncate max-w-[230px]">
+<span class="material-symbols-outlined text-[14px] text-tertiary">history</span>
+<span class="truncate">最近记账：给表妹买金锁</span>
+</div>
+<span class="font-label-amount-sm text-label-amount-sm font-semibold text-primary">¥2,800</span>
+</div>
+</div>
+<!-- 成员 3: 父亲/长辈 (只读查看) -->
+<div class="p-space-sm rounded-lg bg-surface flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed font-headline-sm text-headline-sm">
+              林
+            </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-body-md text-body-md font-semibold text-on-surface">林建华</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-variant text-on-surface-variant font-label-caption text-[10px]">父亲 / 长辈关</span>
+</div>
+<span class="font-label-caption text-label-caption text-tertiary">只读查看 (仅阅览礼数)</span>
+</div>
+</div>
+<button class="flex items-center gap-0.5 px-2 py-1 rounded bg-surface-container text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high transition-colors">
+<span>权限</span>
+<span class="material-symbols-outlined text-[14px]">tune</span>
+</button>
+</div>
+<!-- 贴心设计关怀说明 -->
+<div class="mt-1 p-2 rounded bg-surface-container-low text-tertiary font-body-sm text-body-sm flex items-start gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-secondary flex-shrink-0 mt-0.5">verified_user</span>
+<span class="font-label-caption text-label-caption leading-relaxed">
+            长辈已设置为只读权限，方便在手机端从容核对人情旧礼，同时避免因误触删除往来账款。
+          </span>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. 文化礼俗与记账偏好开关 -->
+<section class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-md">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[20px] text-primary">temple_buddhist</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">文化礼俗与记账规矩</h3>
+</div>
+<div class="space-y-space-sm">
+<!-- 偏好 1: 白事帛金单数 -->
+<div class="p-space-sm rounded-lg bg-surface flex items-start justify-between gap-space-sm">
+<div class="flex flex-col flex-1">
+<div class="flex items-center gap-1.5">
+<span class="font-body-md text-body-md font-semibold text-on-surface">白事帛金单数自动提醒</span>
+<span class="px-1.5 py-0.2 rounded bg-primary-fixed text-primary font-label-caption text-[10px]">守礼</span>
+</div>
+<p class="font-label-caption text-label-caption text-tertiary mt-1">
+            记录吊唁白事时，输入双数如 ¥600 将主动提醒改为单数如 ¥501 或 ¥700，守传统礼法免失敬意。
+          </p>
+</div>
+<button class="w-12 h-6 rounded-full bg-primary-container p-0.5 transition-colors relative flex items-center justify-end flex-shrink-0" onclick="this.classList.toggle('bg-surface-variant'); this.classList.toggle('justify-start'); this.classList.toggle('justify-end')">
+<div class="w-5 h-5 rounded-full bg-on-primary shadow-sm"></div>
+</button>
+</div>
+<!-- 偏好 2: 双历显示 -->
+<div class="p-space-sm rounded-lg bg-surface flex items-start justify-between gap-space-sm">
+<div class="flex flex-col flex-1">
+<div class="flex items-center gap-1.5">
+<span class="font-body-md text-body-md font-semibold text-on-surface">农历与公历双历对照</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container-high text-on-surface font-label-caption text-[10px]">岁次</span>
+</div>
+<p class="font-label-caption text-label-caption text-tertiary mt-1">
+            寿宴、满月及传统吉日明细自动标注干支岁次（如甲辰年冬月初三），方便族内长辈翻阅。
+          </p>
+</div>
+<button class="w-12 h-6 rounded-full bg-primary-container p-0.5 transition-colors relative flex items-center justify-end flex-shrink-0" onclick="this.classList.toggle('bg-surface-variant'); this.classList.toggle('justify-start'); this.classList.toggle('justify-end')">
+<div class="w-5 h-5 rounded-full bg-on-primary shadow-sm"></div>
+</button>
+</div>
+<!-- 偏好 3: 回礼厚薄比对 -->
+<div class="p-space-sm rounded-lg bg-surface flex items-start justify-between gap-space-sm">
+<div class="flex flex-col flex-1">
+<div class="flex items-center gap-1.5">
+<span class="font-body-md text-body-md font-semibold text-on-surface">人情回礼厚薄智能比对</span>
+<span class="px-1.5 py-0.2 rounded bg-secondary-fixed text-secondary font-label-caption text-[10px]">礼尚</span>
+</div>
+<p class="font-label-caption text-label-caption text-tertiary mt-1">
+            新建送礼记录时，自动检索调出该亲友历年往来随礼金额与实物，提供得体回礼建议幅度。
+          </p>
+</div>
+<button class="w-12 h-6 rounded-full bg-primary-container p-0.5 transition-colors relative flex items-center justify-end flex-shrink-0" onclick="this.classList.toggle('bg-surface-variant'); this.classList.toggle('justify-start'); this.classList.toggle('justify-end')">
+<div class="w-5 h-5 rounded-full bg-on-primary shadow-sm"></div>
+</button>
+</div>
+</div>
+</section>
+<!-- 5. 礼单备份与传统折装打印导出 -->
+<section class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[20px] text-primary">print</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">礼单存证与导出</h3>
+</div>
+<span class="font-label-caption text-label-caption text-tertiary">宣纸古法折装</span>
+</div>
+<!-- 典雅宣纸折装预览卡片 -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-sm relative overflow-hidden">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-12 rounded bg-surface border-l-2 border-primary-container flex flex-col items-center justify-center p-1 shadow-sm">
+<span class="font-label-caption text-[9px] text-primary leading-tight writing-vertical select-none">折本</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-semibold text-on-surface">宣纸折装 · 云档岁修册</span>
+<span class="font-label-caption text-label-caption text-tertiary">二零二四甲辰全岁家礼汇总卷 (PDF / A4折页排版)</span>
+</div>
+</div>
+<p class="font-label-caption text-label-caption text-tertiary leading-relaxed">
+        依照传统红白事账房手札格式排版，按亲友世系、交情深浅与事件分栏排定，支持直连家用无线打印机装订留存。
+      </p>
+<div class="grid grid-cols-2 gap-space-xs mt-1">
+<button class="py-2.5 px-3 rounded-lg bg-surface hover:bg-surface-container transition-colors flex items-center justify-center gap-1.5 shadow-sm text-on-surface active:scale-95">
+<span class="material-symbols-outlined text-[18px] text-secondary">table_view</span>
+<span class="font-body-sm text-body-sm font-medium">导出 Excel / CSV</span>
+</button>
+<button class="py-2.5 px-3 rounded-lg bg-primary-container hover:bg-primary transition-colors flex items-center justify-center gap-1.5 shadow-sm text-on-primary-container active:scale-95">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+<span class="font-body-sm text-body-sm font-medium">预览并排版打印</span>
+</button>
+</div>
+</div>
+<!-- 归档记录历史 -->
+<div class="flex items-center justify-between px-1 text-tertiary">
+<span class="font-label-caption text-label-caption">上一次岁修封卷存档：2023 癸卯年腊月廿八</span>
+<button class="font-label-caption text-label-caption text-primary flex items-center gap-0.5">
+<span>档案库</span>
+<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</button>
+</div>
+</section>
+</div>
+<script>
+  // 简易交互：复制邀请码微反馈
+  const copyBtn = document.getElementById('copyCodeBtn');
+  const inviteCodeEl = document.getElementById('inviteCode');
+  if (copyBtn && inviteCodeEl) {
+    copyBtn.addEventListener('click', () => {
+      const code = inviteCodeEl.innerText;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(() => {
+          const originalHTML = copyBtn.innerHTML;
+          copyBtn.innerHTML = '<span class="material-symbols-outlined text-[16px] text-secondary">check</span><span class="font-body-sm text-body-sm text-secondary font-medium">已复制</span>';
+          setTimeout(() => {
+            copyBtn.innerHTML = originalHTML;
+          }, 1800);
+        });
+      }
+    });
+  }
+
+  // 切簿提示轻反馈
+  const toggleBtn = document.getElementById('toggleLedgerBtn');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      toggleBtn.classList.add('scale-95');
+      setTimeout(() => toggleBtn.classList.remove('scale-95'), 150);
+    });
+  }
+</script></main><nav class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(36,32,29,0.05)]" data-active-classes="text-primary"><div class="relative flex items-center justify-between h-16 px-space-xs"><a class="flex-1 flex flex-col items-center justify-center h-full min-w-[44px] text-on-surface-variant transition-colors" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[22px]">space_dashboard</span><span class="font-label-caption text-label-caption mt-0.5">看板</span></a><a class="flex-1 flex flex-col items-center justify-center h-full min-w-[44px] text-on-surface-variant transition-colors" data-path="reconciliation" href="#"><span class="material-symbols-outlined text-[22px]">sync_alt</span><span class="font-label-caption text-label-caption mt-0.5">对账</span></a><div class="flex-shrink-0 flex items-center justify-center px-1.5 -mt-5"><a aria-label="记一笔" class="w-13 h-13 w-[52px] h-[52px] rounded-full bg-primary-container text-on-primary-container shadow-[0_4px_14px_rgba(200,70,48,0.35)] flex items-center justify-center active:scale-95 transition-transform" data-path="quick-add" href="#"><span class="material-symbols-outlined text-[28px]">add</span></a></div><a class="flex-1 flex flex-col items-center justify-center h-full min-w-[44px] text-on-surface-variant transition-colors relative" data-path="reminders" href="#"><div class="relative inline-flex"><span class="material-symbols-outlined text-[22px]">featured_seasonal_and_gifts</span><span class="absolute -top-1 -right-2 px-1 min-w-[14px] h-[14px] rounded-full bg-primary text-on-primary font-label-caption text-[10px] leading-[14px] text-center font-medium">2</span></div><span class="font-label-caption text-label-caption mt-0.5">待回礼</span></a><a aria-current="page" class="flex-1 flex flex-col items-center justify-center h-full min-w-[44px] transition-colors text-primary" data-path="family-sharing" href="#"><span class="material-symbols-outlined text-[22px]">group</span><span class="font-label-caption text-label-caption mt-0.5">共享</span></a></div></nav></body></html>

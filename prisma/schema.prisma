@@ -1,0 +1,339 @@
+// ============================================================
+// 礼金账本 (giftdeal) — Prisma Schema
+// Prisma 7.x + PostgreSQL (Neon)
+//
+// 注意（Prisma 7 特有）：
+// 1. generator 使用新的 "prisma-client"，output 必填，客户端不再生成到 node_modules。
+// 2. datasource 中不再写 url，连接串在 prisma7.config.ts 中配置：
+//      - CLI / migrate 使用 DIRECT_URL（Neon 直连串）
+//      - 运行时 PrismaClient 使用 DATABASE_URL（Neon pooled 串，配合 @prisma/adapter-pg）
+// 3. 金额一律以「分」为单位的整数存储，禁止浮点。
+// 4. 日期型字段（occurredAt）使用 @db.Date，只表达自然日，不含时区。
+// ============================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------------------
+// 枚举
+// ------------------------------------------------------------
+
+/// 礼金方向：送出 / 收到
+enum RecordDirection {
+  GIVEN
+  RECEIVED
+
+  @@map("record_direction")
+}
+
+/// 礼金场景（受控枚举，MVP 五类）
+enum GiftScene {
+  /// 婚礼
+  WEDDING
+  /// 满月
+  BABY_FULL_MONTH
+  /// 百岁
+  BABY_HUNDRED_DAYS
+  /// 白事
+  FUNERAL
+  /// 其他
+  OTHER
+
+  @@map("gift_scene")
+}
+
+/// 账本内角色。MVP 只区分「创建者」与「普通成员」，不做复杂 RBAC。
+enum MembershipRole {
+  OWNER
+  MEMBER
+
+  @@map("membership_role")
+}
+
+/// 人情预备的状态：预备中 / 已完成
+enum PlanStatus {
+  PLANNED
+  DONE
+
+  @@map("plan_status")
+}
+
+// ------------------------------------------------------------
+// 认证相关（Better Auth 核心表 + phoneNumber 插件字段）
+// ------------------------------------------------------------
+
+model User {
+  id String @id
+
+  name  String
+  /// 占位邮箱：{phoneNumber}@phone.local，由 signUpOnVerification.getTempEmail 生成。
+  /// 用户不可见、不用于登录，仅满足 Better Auth 默认模型约束。
+  email         String  @unique
+  emailVerified Boolean @default(false) @map("email_verified")
+  image         String?
+
+  /// E.164 格式，如 +8613800000001
+  phoneNumber         String  @unique @map("phone_number")
+  phoneNumberVerified Boolean @default(false) @map("phone_number_verified")
+
+  /// 预留：微信登录 openid。MVP 不实现微信登录，此字段恒为 null。
+  wxOpenId String? @unique @map("wx_open_id")
+
+  /// 默认账本：登录后前端据此进入。onDelete SetNull，账本被删时降级为「无默认账本」。
+  defaultLedgerId String? @map("default_ledger_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  defaultLedger Ledger? @relation("UserDefaultLedger", fields: [defaultLedgerId], references: [id], onDelete: SetNull)
+
+  sessions    Session[]
+  accounts    Account[]
+  memberships Membership[]
+  createdRecords Record[] @relation("RecordCreator")
+  createdPlans   GiftPlan[] @relation("PlanCreator")
+
+  invitesCreated Invite[] @relation("InviteCreator")
+  invitesUsed    Invite[] @relation("InviteUsedBy")
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ------------------------------------------------------------
+// 业务模型
+// ------------------------------------------------------------
+
+model Ledger {
+  id   String @id @default(cuid())
+  name String @db.VarChar(50)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships Membership[]
+  contacts    Contact[]
+  records     Record[]
+  invites     Invite[]
+  plans       GiftPlan[]
+
+  /// 反向关系：把本账本设为默认账本的用户
+  defaultForUsers User[] @relation("UserDefaultLedger")
+
+  @@map("ledger")
+}
+
+model Membership {
+  id       String         @id @default(cuid())
+  ledgerId String         @map("ledger_id")
+  userId   String         @map("user_id")
+  role     MembershipRole @default(MEMBER)
+  joinedAt DateTime       @default(now()) @map("joined_at")
+
+  ledger Ledger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 同一用户在同一账本内只能有一条成员记录 —— 防重复加入的第一道防线
+  @@unique([ledgerId, userId])
+  @@index([userId])
+  @@map("membership")
+}
+
+model Contact {
+  id       String @id @default(cuid())
+  ledgerId String @map("ledger_id")
+
+  name        String  @db.VarChar(30)
+  /// 关系标签：亲戚 / 朋友 / 同事 / 同学 / 邻居 / 其他（自由文本，前端可用建议值做快捷选择）
+  relationTag String? @map("relation_tag") @db.VarChar(20)
+  phone       String? @db.VarChar(20)
+  note        String? @db.VarChar(200)
+
+  /// 软删除标记。删除联系人后其历史礼金记录仍然保留并计入统计。
+  deletedAt DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ledger  Ledger   @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  records Record[]
+  plans   GiftPlan[]
+
+  @@index([ledgerId, deletedAt])
+  @@index([ledgerId, name])
+  @@map("contact")
+}
+
+model Record {
+  id        String @id @default(cuid())
+  ledgerId  String @map("ledger_id")
+  contactId String @map("contact_id")
+
+  direction RecordDirection
+  /// 金额，单位：分。整数，禁止浮点。
+  amountCents Int    @map("amount_cents")
+  scene       GiftScene @default(OTHER)
+
+  /// 礼金发生的自然日（不含时间与时区）
+  occurredAt DateTime @map("occurred_at") @db.Date
+
+  note String? @db.VarChar(200)
+
+  /// 结清时间。null = 未结清。isSettled 由该字段派生，不单独存布尔，避免双写不一致。
+  settledAt DateTime? @map("settled_at")
+
+  /// 若本条是「收到」记录，指向把它结清的那条「送出」记录（手动结清时为 null）。
+  /// 唯一约束保证一条送出记录最多结清一条收到记录。
+  settledByRecordId String? @unique @map("settled_by_record_id")
+
+  createdById String? @map("created_by_id")
+
+  /// 软删除标记。删除后不计入任何列表与统计。
+  deletedAt DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ledger  Ledger  @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("RecordCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  /// 自关联：本记录（收到）由哪条送出记录结清
+  settledByRecord Record? @relation("RecordSettlement", fields: [settledByRecordId], references: [id], onDelete: SetNull)
+  /// 自关联反向：本记录（送出）结清了哪条收到记录
+  settledRecord   Record? @relation("RecordSettlement")
+
+  /// 若本条记录是由某条人情预备完成时生成的，反向可查
+  plan GiftPlan?
+
+  @@index([ledgerId, contactId, occurredAt])
+  @@index([ledgerId, direction, settledAt])
+  @@index([ledgerId, occurredAt])
+  @@index([ledgerId, deletedAt])
+  @@map("record")
+}
+
+model Invite {
+  id       String @id @default(cuid())
+  ledgerId String @map("ledger_id")
+
+  /// 随机不可猜测令牌（32 字节 hex），用于邀请链接 /invite/{token}
+  token String @unique @db.VarChar(64)
+
+  createdById String   @map("created_by_id")
+  expiresAt   DateTime @map("expires_at")
+
+  /// 单次使用：被接受后写入 usedAt / usedByUserId
+  usedAt       DateTime? @map("used_at")
+  usedByUserId String?   @map("used_by_user_id")
+
+  /// 主动撤销
+  revokedAt DateTime? @map("revoked_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ledger    Ledger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("InviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  usedBy    User?  @relation("InviteUsedBy", fields: [usedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([ledgerId, createdAt])
+  @@map("invite")
+}
+
+/// 人情预备：已知未来某场红白事，提前把这笔礼金备出来。
+/// 完成后可关联一条真实的 Record（也可以只标记完成不记账）。
+model GiftPlan {
+  id        String @id @default(cuid())
+  ledgerId  String @map("ledger_id")
+  contactId String @map("contact_id")
+
+  /// 预计方向：多数是「送出」，也支持「预计收到」
+  direction RecordDirection @default(GIVEN)
+  scene     GiftScene      @default(OTHER)
+
+  /// 预计礼金，单位：分
+  plannedCents Int @map("planned_cents")
+
+  /// 事情发生的预计日期
+  expectedAt DateTime @map("expected_at") @db.Date
+
+  status PlanStatus @default(PLANNED)
+
+  note String? @db.VarChar(200)
+
+  /// 完成时生成/关联的实际礼金记录
+  recordId String? @unique @map("record_id")
+
+  completedAt DateTime? @map("completed_at")
+  createdById String?   @map("created_by_id")
+
+  /// 软删除：删掉的预备不再出现在列表里
+  deletedAt DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ledger    Ledger  @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  record    Record? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+  createdBy User?   @relation("PlanCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([ledgerId, status, expectedAt])
+  @@index([ledgerId, contactId])
+  @@index([ledgerId, deletedAt])
+  @@map("gift_plan")
+}

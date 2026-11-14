@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="auth_page" name="shell-type"/>
+<title>登录 · 礼尚人情账本</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#c84630",
+            "primary-hover": "#b03a26",
+            "primary-container": "#f8e9e6",
+            "vermilion": "#c84630",
+            "ink": "#231f1d",
+            "ink-light": "#544b46",
+            "ink-muted": "#8d827a",
+            "paper": "#FAF7F2",
+            "paper-card": "#FFFFFF",
+            "paper-border": "#E8E2D9",
+            "paper-accent": "#F3EDE4",
+            "gold-accent": "#9E7B4F"
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          boxShadow: {
+            'stamp': '0 2px 8px rgba(200, 70, 48, 0.25)',
+            'float': '0 20px 50px -12px rgba(60, 40, 30, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02)',
+            'inner-fine': 'inset 0 1px 2px rgba(0, 0, 0, 0.03)',
+          }
+        },
+      },
+    };
+  </script>
+<style>
+    /* 宣纸底纹与微光效果 */
+    body {
+      background-color: #FAF7F2;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(200, 70, 48, 0.03) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(158, 123, 79, 0.04) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.8) 0%, transparent 80%);
+      background-attachment: fixed;
+    }
+
+    .seal-shadow {
+      box-shadow: 0 4px 14px -1px rgba(200, 70, 48, 0.28);
+    }
+  </style>
+</head>
+<body class="h-full font-sans text-ink antialiased selection:bg-vermilion/10 selection:text-vermilion relative flex flex-col justify-between overflow-x-hidden min-h-screen">
+<!-- 顶部轻量极简品牌栏 (非登录态，仅保留品牌与安全状态) -->
+<header class="w-full max-w-7xl mx-auto px-6 py-6 md:px-12 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-3">
+<!-- 典雅朱砂红金石印章 Logo -->
+<div class="w-10 h-10 rounded-xl bg-vermilion text-white flex items-center justify-center font-serif text-xl font-bold seal-shadow border border-vermilion/40 relative">
+<span class="tracking-tighter">禮</span>
+<div class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#f8e9e6] border border-white flex items-center justify-center">
+<svg class="w-2 h-2 text-vermilion" fill="none" stroke="currentColor" stroke-width="3" viewbox="0 0 24 24">
+<polyline points="20 6 9 17 4 12"></polyline>
+</svg>
+</div>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-serif text-lg font-semibold tracking-wide text-ink">礼尚</span>
+<span class="text-ink-muted text-xs">·</span>
+<span class="text-sm font-medium text-ink-light tracking-normal">人情账本</span>
+</div>
+<span class="font-mono text-[9px] text-ink-muted tracking-widest uppercase">Traditional Reciprocity &amp; Family Ledger</span>
+</div>
+</div>
+<!-- 顶部右侧轻量标签 -->
+<div class="hidden sm:flex items-center gap-3 text-xs text-ink-muted bg-paper-accent/70 border border-paper-border px-3.5 py-1.5 rounded-full backdrop-blur-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-vermilion/70 animate-pulse"></span>
+<span class="font-serif">岁在甲辰 · 礼顺意厚</span>
+<span class="text-paper-border">|</span>
+<span class="flex items-center gap-1 font-sans">
+<svg class="w-3.5 h-3.5 text-gold-accent" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+        家庭私钥安全加密
+      </span>
+</div>
+</header>
+<!-- 主体工作区：经典双栏东方叙事 + 精美登录卡片 -->
+<main class="w-full max-w-7xl mx-auto px-6 md:px-12 py-4 lg:py-8 flex-1 flex items-center justify-center">
+<div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-10 xl:gap-16 items-center">
+<!-- 左侧：东方人文叙事与产品智慧区 (7 cols on lg) -->
+<div class="lg:col-span-7 flex flex-col justify-center space-y-8 pr-0 lg:pr-4">
+<!-- 古典题词与主标题 -->
+<div class="space-y-4">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-vermilion/5 border border-vermilion/15 text-vermilion text-xs font-serif">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>典出《礼记·曲礼上》</span>
+</div>
+<h1 class="font-serif text-3xl sm:text-4xl xl:text-5xl text-ink font-semibold tracking-tight leading-[1.35]">
+            “礼尚往来。往而不来，非礼也；来而不往，亦非礼也。”
+          </h1>
+<p class="text-ink-light text-base sm:text-lg leading-relaxed font-sans max-w-2xl pt-1">
+            褪去俗冗记账的冰冷，以当代数字器物重塑传统人伦往还之美。记每一笔深重心意，清每一份代际恩情。
+          </p>
+</div>
+<!-- 核心东方人情智慧卡片排布 (3个核心特质) -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+<!-- ① 知恩省答 · 双向对账 -->
+<div class="bg-paper-card/75 border border-paper-border/80 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-vermilion/30 transition-all duration-300 group flex flex-col justify-between">
+<div>
+<div class="w-10 h-10 rounded-xl bg-vermilion/5 border border-vermilion/15 flex items-center justify-center text-vermilion mb-3.5 group-hover:scale-105 transition-transform">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<h3 class="font-serif text-base font-semibold text-ink mb-1.5 flex items-center gap-1.5">
+                知恩省答 · 双向对账
+              </h3>
+<p class="text-xs text-ink-muted leading-relaxed">
+                收礼送礼清晰配比，自动平衡往还差额，适度还礼不失礼数。
+              </p>
+</div>
+<div class="mt-4 pt-3 border-t border-paper-border/50 text-[11px] font-mono text-gold-accent flex items-center gap-1">
+<span>往来互溯</span>
+<span>·</span>
+<span>省己知报</span>
+</div>
+</div>
+<!-- ② 一册同心 · 家族共济 -->
+<div class="bg-paper-card/75 border border-paper-border/80 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-vermilion/30 transition-all duration-300 group flex flex-col justify-between">
+<div>
+<div class="w-10 h-10 rounded-xl bg-[#9E7B4F]/10 border border-[#9E7B4F]/20 flex items-center justify-center text-gold-accent mb-3.5 group-hover:scale-105 transition-transform">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.199l-.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<h3 class="font-serif text-base font-semibold text-ink mb-1.5">
+                一册同心 · 家族共济
+              </h3>
+<p class="text-xs text-ink-muted leading-relaxed">
+                小家与长辈多账本同修协同，多方记录无缝聚合，跨代人情不脱节。
+              </p>
+</div>
+<div class="mt-4 pt-3 border-t border-paper-border/50 text-[11px] font-mono text-gold-accent flex items-center gap-1">
+<span>夫妻互晓</span>
+<span>·</span>
+<span>孝敬长幼</span>
+</div>
+</div>
+<!-- ③ 谨言慎行 · 礼俗规矩 -->
+<div class="bg-paper-card/75 border border-paper-border/80 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-vermilion/30 transition-all duration-300 group flex flex-col justify-between">
+<div>
+<div class="w-10 h-10 rounded-xl bg-ink/5 border border-ink/10 flex items-center justify-center text-ink-light mb-3.5 group-hover:scale-105 transition-transform">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<h3 class="font-serif text-base font-semibold text-ink mb-1.5">
+                谨言慎行 · 礼俗规矩
+              </h3>
+<p class="text-xs text-ink-muted leading-relaxed">
+                帛金单数风俗校验、红白事宜吉忌备忘与节序温情提醒，处事庄重。
+              </p>
+</div>
+<div class="mt-4 pt-3 border-t border-paper-border/50 text-[11px] font-mono text-gold-accent flex items-center gap-1">
+<span>四时八节</span>
+<span>·</span>
+<span>守序周全</span>
+</div>
+</div>
+</div>
+<!-- 底部信笺印章微细节与背书 -->
+<div class="flex items-center justify-between pt-2 border-t border-paper-border/60">
+<div class="flex items-center gap-3">
+<div class="w-6 h-6 rounded-full bg-vermilion/10 text-vermilion flex items-center justify-center font-serif text-[11px] font-bold border border-vermilion/20">
+              誠
+            </div>
+<p class="text-xs text-ink-muted font-sans">
+              已为超过 <span class="font-mono font-semibold text-ink">128,000+</span> 东方家庭妥善收录春秋礼单与亲友簿册
+            </p>
+</div>
+<div class="hidden sm:flex items-center gap-1.5 text-xs text-gold-accent font-serif">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>端到端加密保护</span>
+</div>
+</div>
+</div>
+<!-- 右侧：精雕细琢的登录鉴权卡片 (5 cols on lg) -->
+<div class="lg:col-span-5 flex justify-center lg:justify-end">
+<div class="w-full max-w-[430px] bg-paper-card/95 backdrop-blur-xl rounded-[24px] shadow-float border border-stone-200/70 p-7 sm:p-9 relative transition-all duration-300">
+<!-- 卡片顶部的暗雅纹饰徽标 -->
+<div class="flex items-start justify-between mb-6">
+<div>
+<h2 class="font-serif text-2xl font-bold text-ink tracking-tight">手机快捷登录</h2>
+<p class="text-xs text-ink-muted mt-1.5 font-sans leading-relaxed">
+                无需预先注册，首次验证即自动开启或关联您的主家庭账本
+              </p>
+</div>
+<div class="w-11 h-11 rounded-2xl bg-paper-accent/60 border border-paper-border flex items-center justify-center text-vermilion shadow-inner-fine shrink-0">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- 表单区 -->
+<form class="space-y-4" id="authLoginForm" onsubmit="event.preventDefault(); executeLogin();">
+<!-- 手机号字段 -->
+<div class="space-y-1.5">
+<label class="block text-xs font-medium text-ink-light" for="userPhoneInput">
+                大陆手机号码
+              </label>
+<div class="relative flex items-center bg-paper-accent/40 border border-paper-border rounded-xl transition-all duration-200 focus-within:bg-white focus-within:border-vermilion focus-within:ring-2 focus-within:ring-vermilion/15">
+<div class="flex items-center pl-3.5 pr-2.5 text-ink-light select-none">
+<svg class="w-4 h-4 text-ink-muted mr-1.5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="font-mono text-sm font-semibold text-ink">+86</span>
+</div>
+<div class="h-5 w-px bg-paper-border"></div>
+<input autocomplete="tel" class="w-full py-3 px-3 bg-transparent font-mono text-sm text-ink placeholder:text-ink-muted/50 border-0 focus:outline-none focus:ring-0 tracking-wider" id="userPhoneInput" maxlength="11" placeholder="138 0000 0000" type="tel" value="13812348821"/>
+<button class="p-2 mr-1 text-ink-muted hover:text-ink transition-colors" id="clearInputBtn" onclick="const el = document.getElementById('userPhoneInput'); el.value=''; el.focus();" title="清空" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+<!-- 验证码字段 -->
+<div class="space-y-1.5">
+<div class="flex items-center justify-between">
+<label class="block text-xs font-medium text-ink-light" for="smsInput">
+                  短信验证码
+                </label>
+<span class="text-[11px] text-ink-muted">6 位纯数字</span>
+</div>
+<div class="flex items-center gap-2.5">
+<div class="relative flex-1 flex items-center bg-paper-accent/40 border border-paper-border rounded-xl transition-all duration-200 focus-within:bg-white focus-within:border-vermilion focus-within:ring-2 focus-within:ring-vermilion/15">
+<div class="pl-3.5 pr-1 text-ink-muted">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<input autocomplete="one-time-code" class="w-full py-3 px-2 bg-transparent font-mono text-sm text-ink placeholder:text-ink-muted/50 tracking-widest border-0 focus:outline-none focus:ring-0" id="smsInput" maxlength="6" placeholder="6位验证码" type="text" value="888666"/>
+</div>
+<button class="shrink-0 px-3.5 py-3 rounded-xl bg-paper-accent/80 hover:bg-paper-border/70 border border-paper-border text-xs font-medium text-vermilion transition-all active:scale-[0.98] disabled:opacity-50 select-none" id="countdownBtn" onclick="triggerCountdown()" type="button">
+                  重新获取 (58s)
+                </button>
+</div>
+</div>
+<!-- 主按钮：沉稳典雅朱砂红渐变 -->
+<div class="pt-2">
+<button class="w-full py-3.5 px-6 rounded-xl bg-vermilion hover:bg-primary-hover text-white font-medium text-sm seal-shadow transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98] group" id="loginActionBtn" type="submit">
+<span class="tracking-wider">立即登录 · 进入账本</span>
+<svg class="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</form>
+<!-- 优雅分割线 -->
+<div class="relative flex py-4 items-center">
+<div class="flex-grow border-t border-paper-border"></div>
+<span class="shrink-0 mx-3 text-[11px] font-sans text-ink-muted">或通过授权方式</span>
+<div class="flex-grow border-t border-paper-border"></div>
+</div>
+<!-- 微信一键授权登录 -->
+<button class="w-full py-2.5 px-4 rounded-xl bg-paper-accent/60 hover:bg-paper-accent border border-paper-border text-ink-light text-xs font-medium transition-all duration-200 flex items-center justify-center gap-2.5 active:scale-[0.98]" onclick="triggerWeChatAuth()" type="button">
+<!-- 矢量细线微信徽标 -->
+<svg class="w-4 h-4 text-[#07C160]" fill="currentColor" viewbox="0 0 24 24">
+<path d="M8.691 2.188C3.891 2.188 0 5.478 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.61.61 0 0 1 .215.467l-.053 1.63c-.015.438.423.74.808.528l2.23-1.233a.81.81 0 0 1 .494-.092c.636.108 1.3.167 1.995.167.314 0 .622-.014.928-.037a6.974 6.974 0 0 1-.227-1.76c0-3.923 3.633-7.103 8.115-7.103.228 0 .452.01.674.025C17.07 5.617 13.23 2.188 8.691 2.188zm-2.45 4.356c.606 0 1.097.49 1.097 1.097 0 .605-.49 1.096-1.097 1.096s-1.096-.49-1.096-1.096c0-.606.49-1.097 1.096-1.097zm5.26 0c.605 0 1.096.49 1.096 1.097 0 .605-.49 1.096-1.096 1.096-.607 0-1.097-.49-1.097-1.096 0-.606.49-1.097 1.097-1.097zm4.27 4.908c-3.923 0-7.103 2.78-7.103 6.21 0 1.874.945 3.56 2.457 4.7a.52.52 0 0 1 .183.396l-.045 1.38c-.013.37.358.627.684.448l1.89-1.045a.69.69 0 0 1 .42-.078c.49.092 1.002.142 1.514.142 3.924 0 7.103-2.78 7.103-6.21 0-3.43-3.179-6.21-7.103-6.21zm-2.368 3.69c.513 0 .93.417.93.93 0 .514-.417.93-.93.93-.514 0-.93-.416-.93-.93 0-.513.416-.93.93-.93zm4.457 0c.513 0 .93.417.93.93 0 .514-.417.93-.93.93-.514 0-.93-.416-.93-.93 0-.513.416-.93.93-.93z"></path>
+</svg>
+<span class="tracking-wide">微信授权快捷登入</span>
+</button>
+<!-- 演示账本关联提示 -->
+<div class="mt-4 p-3 rounded-xl bg-paper-accent/50 border border-paper-border flex items-start gap-2.5">
+<svg class="w-4 h-4 text-vermilion shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<p class="text-[11px] text-ink-muted leading-relaxed font-sans">
+              已载入演示家庭账册：登录后将自动同步「我的小家庭」主账本与「双亲大家庭」往来回礼记录。
+            </p>
+</div>
+<!-- 协议声明 -->
+<div class="mt-4 pt-1 flex items-start gap-2">
+<input checked="" class="mt-0.5 w-3.5 h-3.5 rounded text-vermilion border-paper-border focus:ring-vermilion/30 focus:ring-offset-0 cursor-pointer" id="agreementCheckbox" type="checkbox"/>
+<label class="text-[11px] text-ink-muted leading-normal cursor-pointer select-none" for="agreementCheckbox">
+              我已阅读并同意 <a class="text-vermilion hover:underline" href="#">《礼尚服务协议》</a>、<a class="text-vermilion hover:underline" href="#">《隐私保护政策》</a> 及家庭隐私数据加密准则。
+            </label>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- 底部典雅页脚 -->
+<footer class="w-full max-w-7xl mx-auto px-6 py-6 md:px-12 flex flex-col sm:flex-row items-center justify-between text-xs text-ink-muted border-t border-paper-border/60 gap-3 shrink-0">
+<div class="flex items-center gap-2">
+<span class="font-serif">礼尚 · 东方家庭人情数字账本</span>
+<span>·</span>
+<span class="font-mono text-[11px]">v2.4.0 (2024 Release)</span>
+</div>
+<div class="flex items-center gap-4 text-[11px]">
+<a class="hover:text-vermilion transition-colors" href="#">文化缘起</a>
+<span class="text-paper-border">|</span>
+<a class="hover:text-vermilion transition-colors" href="#">礼俗指南</a>
+<span class="text-paper-border">|</span>
+<a class="hover:text-vermilion transition-colors" href="#">数据安全承诺</a>
+<span class="text-paper-border">|</span>
+<span>闽ICP备202400188号</span>
+</div>
+</footer>
+<!-- 交互逻辑 -->
+<script>
+    let remainingSeconds = 58;
+    let countdownInterval = null;
+
+    function triggerCountdown() {
+      const btn = document.getElementById('countdownBtn');
+      if (countdownInterval) return;
+      remainingSeconds = 60;
+      btn.disabled = true;
+      btn.textContent = `重新获取 (${remainingSeconds}s)`;
+      
+      countdownInterval = setInterval(() => {
+        remainingSeconds--;
+        if (remainingSeconds <= 0) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+          btn.disabled = false;
+          btn.textContent = '获取验证码';
+        } else {
+          btn.textContent = `重新获取 (${remainingSeconds}s)`;
+        }
+      }, 1000);
+    }
+
+    function executeLogin() {
+      const agreed = document.getElementById('agreementCheckbox').checked;
+      const phone = document.getElementById('userPhoneInput').value.trim();
+      const code = document.getElementById('smsInput').value.trim();
+
+      if (!agreed) {
+        alert('请先勾选并同意《服务协议》与《隐私保护政策》');
+        return;
+      }
+      if (!phone || phone.length < 11) {
+        alert('请输入有效的11位手机号码');
+        return;
+      }
+      if (!code || code.length < 4) {
+        alert('请输入收到的短信验证码');
+        return;
+      }
+
+      const btn = document.getElementById('loginActionBtn');
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>正在载入家庭账本...</span>
+      `;
+
+      setTimeout(() => {
+        btn.innerHTML = `
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>验证通过 · 欢迎回家</span>
+        `;
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.innerHTML = `
+            <span class="tracking-wider">立即登录 · 进入账本</span>
+            <svg class="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+            </svg>
+          `;
+        }, 1600);
+      }, 800);
+    }
+
+    function triggerWeChatAuth() {
+      alert('已触发微信一键登录：在生产环境下将拉起微信统一鉴权。');
+    }
+
+    // 默认开启倒计时以增强逼真感
+    triggerCountdown();
+  </script>
+</body></html>
