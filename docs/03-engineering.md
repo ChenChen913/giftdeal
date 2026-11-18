@@ -133,7 +133,7 @@ Better Auth `phoneNumber` 插件：
 - Better Auth 1.7 的 `rateLimit.storage = "database"`，计数存 `rate_limit` 表，适配器用乐观锁自增，多实例共享。
 - 覆盖 `/phone-number/send-otp`（5 次 / 分钟 / IP）与 `/phone-number/verify`（10 次 / 分钟 / IP）。
 - 手机号 60 秒冷却（`throttle` 表）不依赖 IP，换 IP 也不能绕过。
-- IP 来源默认 `x-real-ip` → `x-forwarded-for`；多级代理用 `TRUSTED_PROXY_CIDRS` 配置可信代理，否则多值头会落入共享桶。
+- 生产必须显式声明 IP 来源：`TRUSTED_IP_HEADERS`（代理覆盖单值头）或 `TRUSTED_PROXY_CIDRS`（代理追加多级 XFF）。未配置时 `ipAddressHeaders: []`，服务在启动自检阶段直接拒绝启动，绝不「猜」客户端 IP；只有开发 / 测试才默认读 `x-real-ip` → `x-forwarded-for`。
 - 限流存储异常时会抛错（HTTP 层 500），不会静默放行。
 
 ### 4.4 内部账号
@@ -157,7 +157,8 @@ smsProviderName(envName?)
 fixedOtpCodeEnabled(envName?)
 checkUrl / isPostgresUrl / checkAuthSecret
 collectConfigProblems(envName?)   // 返回问题列表，纯函数便于测试
-collectConfigWarnings(envName?)   // 不阻止启动的提醒（如未配置可信代理）
+collectConfigWarnings(envName?)   // 不阻止启动的提醒（网段过大、请求头可能被伪造）
+ipTrustConfig(envName?) / checkCidr()  // 客户端 IP 信任边界与 CIDR 语法校验
 assertProductionConfig()          // 有问题直接抛 ProductionConfigError
 ```
 
@@ -174,12 +175,14 @@ assertProductionConfig()          // 有问题直接抛 ProductionConfigError
 
 - 测试标记由 `npm run build:test` 设置，`NEXT_PUBLIC_*` 会被 Next **内联进产物**；运行时再设置环境变量无效，因此不能成为生产后门。
 - `next build` 阶段即使 `APP_ENV=test` 也按 production 生成产物；缺少运行时密钥不会导致构建失败（数据库连接串在构建期使用不会连接的占位串）。
-- `npm run check:prod-guard` 会用严格生产构建启动一次 `APP_ENV=test`，断言被拒绝。
+- `npm run check:prod-guard` 用严格生产构建跑 A/B/B2/C 四种启动组合；加 `test-build` 参数再跑 D/E 两种（测试构建身份不可混淆）。C 用例要求产物是用 **https 生产域名**构建的，否则会被配置自检正确地拒绝 —— CI 的「生产构建」步骤单独注入了 `NEXT_PUBLIC_APP_URL=https://...`。
+- `APP_ENV=test` 必须能证明来源：除 `NODE_ENV=test` 外，只有带 `NEXT_PUBLIC_E2E_BUILD=1` 内联标记的测试构建可以进入测试模式；`NODE_ENV` 缺失时同样拒绝，避免生产构建被改名降级。
 - `NEXT_PUBLIC_*`（如 `NEXT_PUBLIC_APP_URL`）会被 Next 在构建时内联，运行时覆盖无效；生产构建必须在构建环境里配好。
 
 生产启动时 `src/instrumentation.ts` 调用 `assertProductionConfig()`，检查：
 
-- `BETTER_AUTH_SECRET`（≥32 字符）、`DATABASE_URL`、`BETTER_AUTH_URL`、`NEXT_PUBLIC_APP_URL`
+- `BETTER_AUTH_SECRET`（≥32 字符）、`DATABASE_URL`、`BETTER_AUTH_URL`、`NEXT_PUBLIC_APP_URL`（后两者必须 https）
+- `TRUSTED_IP_HEADERS` 或 `TRUSTED_PROXY_CIDRS`：至少声明一个可信 IP 来源；请求头名不能是 `cookie` / `authorization` 等凭据头，CIDR 非法或 `/0` 全网段会被拒绝，过大网段只警告
 - `PRIVACY_PASSWORD`（≥8 位，非重复 / 连续 / 常见弱口令）
 - `SMS_PROVIDER` 必须显式配置；为 `mock` 时报错；为 `tencent` 时检查 5 个必填变量
 - 危险开关：`OTP_ALLOW_FIXED_CODE`、`ALLOW_ADMIN_LOGIN`、`ALLOW_LAN_ACCESS` 必须关闭

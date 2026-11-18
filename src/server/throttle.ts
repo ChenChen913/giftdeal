@@ -18,6 +18,7 @@ import { createHmac } from "node:crypto";
 import { eq, lt, sql } from "drizzle-orm";
 
 import { db } from "@/server/db-drizzle";
+import { appEnv, ConfigError, type AppEnv } from "./env";
 import { throttle } from "./schema";
 
 export type ThrottleState = {
@@ -119,15 +120,39 @@ export async function cleanupExpiredThrottle(now = Date.now()): Promise<number> 
   return removed.length;
 }
 
-function digest(value: string): string {
+/** 仅开发 / 测试：固定的本地摘要密钥，不回退到生产 */
+const DEV_THROTTLE_SECRET = "giftdeal-throttle-development-only";
+
+/**
+ * 限流键摘要使用的密钥。
+ * - 生产环境必须使用 BETTER_AUTH_SECRET（启动自检已经强制要求它存在）；
+ *   缺失时直接抛错，绝不用硬编码 fallback —— 否则任何人都能用公开常量
+ *   反推出手机号（11 位号码空间很小）。
+ * - 开发 / 测试回退到明确的本地常量，保证测试稳定、本地开箱即用。
+ */
+export function throttleDigestKey(envName: AppEnv = appEnv): string {
+  const configured = process.env.BETTER_AUTH_SECRET?.trim();
+  if (configured) return configured;
+  if (envName === "production") {
+    throw new ConfigError(
+      "BETTER_AUTH_SECRET",
+      "生产环境缺少 BETTER_AUTH_SECRET，无法为限流键生成不可反查的摘要",
+    );
+  }
+  return DEV_THROTTLE_SECRET;
+}
+
+function digest(value: string, envName: AppEnv = appEnv): string {
   // 限流键不是密码学凭据，但也不应该把手机号明文写进表里。
   // 使用服务端密钥做 HMAC，避免只靠手机号空间被彩虹表反查。
-  const key = process.env.BETTER_AUTH_SECRET?.trim() || "giftdeal-throttle-local";
-  return createHmac("sha256", key).update(value, "utf8").digest("base64url").slice(0, 32);
+  return createHmac("sha256", throttleDigestKey(envName))
+    .update(value, "utf8")
+    .digest("base64url")
+    .slice(0, 32);
 }
 
 export const throttleKeys = {
   privacyFail: (userId: string) => `privacy-fail:${userId}`,
   /** 手机号 → 稳定摘要，不在数据库里保存完整号码 */
-  otpSend: (phone: string) => `otp-send:${digest(phone)}`,
+  otpSend: (phone: string, envName: AppEnv = appEnv) => `otp-send:${digest(phone, envName)}`,
 };

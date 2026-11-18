@@ -42,9 +42,15 @@ const isCloudflareBuild = process.env.BUILD_TARGET === "cloudflare";
  * 这里把服务层统一引用的 `@/server/db-drizzle` 在 Workers 构建时指向 db-neon.ts，
  * 业务代码不需要感知运行时差异。
  */
-const dbAlias = {
-  "@/server/db-drizzle": path.resolve(process.cwd(), "src/server/db-neon.ts"),
-};
+/**
+ * 两种构建器要分别给路径：
+ * - Turbopack 在 Windows 上无法解析 `D:\...` 这种盘符开头的绝对路径别名
+ *   （会报 "windows imports are not implemented yet"，导致 cf:build 全部路由编译失败），
+ *   所以给它项目根相对路径；
+ * - webpack 由 Node 自己解析路径，绝对路径在 Windows 下工作正常，保持不变。
+ */
+const neonEntryRelative = "./src/server/db-neon.ts";
+const neonEntryAbsolute = path.resolve(process.cwd(), "src/server/db-neon.ts");
 
 const nextConfig: NextConfig = {
   /**
@@ -62,7 +68,9 @@ const nextConfig: NextConfig = {
    * dev 启动就会直接报错退出（"using Turbopack, with a webpack config and no turbopack config"）。
    * 这里保留空配置；Workers 构建额外挂上数据库别名。
    */
-  turbopack: isCloudflareBuild ? { resolveAlias: dbAlias } : {},
+  turbopack: isCloudflareBuild
+    ? { resolveAlias: { "@/server/db-drizzle": neonEntryRelative } }
+    : {},
 
   ...(isCloudflareBuild
     ? {
@@ -94,7 +102,10 @@ const nextConfig: NextConfig = {
     // webpack 构建（老版本或显式 --webpack）时同样切到 Neon 驱动
     if (isCloudflareBuild) {
       config.resolve = config.resolve ?? {};
-      config.resolve.alias = { ...config.resolve.alias, ...dbAlias };
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        "@/server/db-drizzle": neonEntryAbsolute,
+      };
     }
     return config;
   },

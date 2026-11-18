@@ -154,9 +154,14 @@ npm run smoke
 # E2E：内部会构建测试产物（NEXT_PUBLIC_E2E_BUILD=1），不需要先 build
 npm run test:e2e
 
-# 反向验证：严格生产构建必须拒绝 APP_ENV=test
-npm run build
+# 反向验证：严格生产构建必须拒绝 APP_ENV=test / development / 缺失 NODE_ENV
+# C 用例要求产物用 https 生产域名构建（NEXT_PUBLIC_APP_URL 构建期内联，运行时改无效）
+NEXT_PUBLIC_APP_URL=https://giftdeal.example.com npm run build
 npm run check:prod-guard
+npm run build:test && node scripts/check-prod-guard.mjs test-build
+
+# 限流表清理（运维入口；--dry-run 只统计不删除）
+npm run db:cleanup -- --dry-run
 ```
 
 E2E 的隔离方式：
@@ -174,13 +179,13 @@ E2E 的隔离方式：
 
 `.github/workflows/ci.yml` 两个 job：
 
-1. `verify`：`npm ci` → `typecheck` → `npm test` → 严格 `build` → `check:prod-guard` → `build:test` → 起 PGlite + migrate + seed + start → `smoke`；
+1. `verify`：`npm ci` → `typecheck` → `npm test` → 严格 `build`（该步骤单独注入 https 生产域名）→ `check:prod-guard` → `build:test` → 起 PGlite + migrate + diff + seed + start → `smoke`；
 2. `e2e`：`npm ci` → 安装 Chromium → `build` → `test:e2e` → 失败时上传报告。
 
 CI 显式设置 `APP_ENV=test`，但严格构建产物在运行时会拒绝 test：所以冒烟/E2E 使用带内联标记的 `build:test` 产物。真实生产（`APP_ENV=production`）会在启动自检阶段拒绝 mock 短信与固定验证码。
 
 ### 5.1 限流测试的边界
 
-- 生产环境的 IP 来自 `x-real-ip` / `x-forwarded-for`。测试里直接构造请求头，验证的是「限流逻辑 + 数据库共享」；
-- 实际防伪造依赖反向代理覆盖请求头。`TRUSTED_PROXY_CIDRS` 可解析多级代理链；未配置时多值头进入共享桶，不会为每个伪造 IP 开新桶；
+- 生产环境只信任显式声明的来源（`TRUSTED_IP_HEADERS` / `TRUSTED_PROXY_CIDRS`），未配置会拒绝启动；测试里直接构造请求头，验证的是「限流逻辑 + 数据库共享」；
+- 实际防伪造依赖反向代理覆盖请求头，或由 `TRUSTED_PROXY_CIDRS` 从右往左跳过可信代理；解析不出 IP 时进入共享桶，不会为每个伪造 IP 开新桶；
 - 手机号冷却不依赖 IP，是本项目对「换 IP 刷短信」的最终兜底。

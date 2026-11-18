@@ -195,6 +195,8 @@ model Membership {
 
   /// 同一用户在同一账本内只能有一条成员记录 —— 防重复加入的第一道防线
   @@unique([ledgerId, userId])
+  /// 另有「每本账本最多一个 OWNER」的部分唯一索引（migration 20261118150000），
+  /// Prisma 不支持声明部分索引，因此无法写在这里；migrate diff 会忽略它。
   @@index([userId])
   @@map("membership")
 }

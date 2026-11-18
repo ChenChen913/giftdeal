@@ -30,7 +30,7 @@
 | `DIRECT_URL` | Neon direct 串 | `prisma migrate status` 能连上 |
 | `BETTER_AUTH_SECRET` | ≥32 字符，生产专用 | 登录后会话能保持；隐私解锁 Cookie 可签发 |
 | `BETTER_AUTH_URL` | `https://<域名>` | 登录不报 Invalid origin |
-| `NEXT_PUBLIC_APP_URL` | 邀请链接域名，通常同上。**构建时内联**，必须在构建环境配置 | 生成的邀请链接域名正确 |
+| `NEXT_PUBLIC_APP_URL` | 邀请链接域名，通常同上。**构建时内联**、必须 https，且必须在构建环境配置（运行时改无效） | 生成的邀请链接域名正确；生产自检不报「必须使用 https」 |
 | `PRIVACY_PASSWORD` | ≥8 位，非重复 / 连续 / 常见弱口令 | 顶栏隐私模式能解锁；缺配置会 503 |
 | `SMS_PROVIDER` | `tencent` | 点「获取验证码」能收到真实短信 |
 | `TENCENT_SMS_SECRET_ID` | 访问密钥 | — |
@@ -39,6 +39,7 @@
 | `TENCENT_SMS_SIGN_NAME` | 审核通过的签名，不带【】 | 短信能送达 |
 | `TENCENT_SMS_TEMPLATE_ID` | 模板数字 ID | 短信内容正确 |
 | `TENCENT_SMS_REGION` | 默认 `ap-guangzhou` | — |
+| `TRUSTED_IP_HEADERS` 或 `TRUSTED_PROXY_CIDRS` | **二选一必填**：声明可信客户端 IP 来源，未配置直接拒绝启动 | 启动日志打印「客户端 IP 来源」 |
 
 ### 2.2 必须删除或设为 false
 
@@ -50,13 +51,16 @@
 | `NEXT_PUBLIC_SHOW_DEMO_HINT` | 生产构建默认隐藏；不要强制打开 |
 | `NEXT_PUBLIC_E2E_BUILD` | 测试构建标记。**构建生产产物时绝不能设置**，否则产物只能以 test 运行 |
 
-> 代码里有启动自检：以上任意一个为 `true`，或者 `SMS_PROVIDER=mock`、`PRIVACY_PASSWORD` 缺失/过弱，服务会**拒绝启动**并打印问题列表。看到启动失败先按提示补配置，不要临时关掉校验。
+> 代码里有启动自检：以上任意一个为 `true`，或者 `SMS_PROVIDER=mock`、`PRIVACY_PASSWORD` 缺失/过弱、**没有声明可信 IP 来源**，服务会**拒绝启动**并打印问题列表。看到启动失败先按提示补配置，不要临时关掉校验。
+>
+> 若问题出在 `NEXT_PUBLIC_*` 上，运行时补环境变量没有用 —— 它已内联进产物，必须用正确的构建环境重新构建。
 
 ### 2.3 建议
 
 - [ ] 在 Neon 控制台开启 **IP Allow**（如果使用固定出口 IP）或依赖 SSL
-- [ ] 如果前面还有一层自建代理/网关，配置 `TRUSTED_PROXY_CIDRS`（代理 IP/CIDR，逗号分隔）；否则多级 `X-Forwarded-For` 无法解析，IP 限流会退化为共享桶
-- [ ] 确认 `TRUSTED_IP_HEADERS` 与实际代理一致（默认 `x-real-ip,x-forwarded-for`）
+- [ ] 代理会**追加**多级 `X-Forwarded-For` 时配 `TRUSTED_PROXY_CIDRS`（代理 IP/CIDR，逗号分隔）；Better Auth 从右往左跳过可信代理，客户端伪造左侧地址无效
+- [ ] 平台/代理会**覆盖**单值请求头时配 `TRUSTED_IP_HEADERS`（如 `x-real-ip` / `cf-connecting-ip`），并确认该头确实会被覆盖；生产没有「默认信任头」，不配就不读任何头
+- [ ] `/api/v1/health` 返回 `env` 与 `build`：生产应是 `production` / `production`；出现 `build=test` 说明误部署了 E2E 产物
 - [ ] Vercel 环境变量按 Production / Preview / Development 分环境配置，Preview 不要连生产库
 - [ ] `NEXT_PUBLIC_*` 会被打进前端产物，确认其中没有密钥
 

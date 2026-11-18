@@ -56,7 +56,7 @@
 
 | 套件 | 数量 | 命令 |
 |---|---|---|
-| 单元 + 服务层测试 | **103** | `npm test` |
+| 单元 + 服务层测试 | **112** | `npm test` |
 | 接口冒烟 | **70** | `npm run smoke` |
 | Playwright E2E | **11** | `npm run test:e2e` |
 
@@ -319,7 +319,12 @@ TENCENT_SMS_SECRET_KEY=...
 TENCENT_SMS_SDK_APP_ID=...
 TENCENT_SMS_SIGN_NAME=...
 TENCENT_SMS_TEMPLATE_ID=...
+# 二选一：声明可信的客户端 IP 来源（生产未配置会拒绝启动）
+TRUSTED_IP_HEADERS=x-real-ip          # 平台会覆盖该头时（Cloudflare 用 cf-connecting-ip）
+# 或 TRUSTED_PROXY_CIDRS=10.0.0.0/8  # 代理会追加 X-Forwarded-For 时
 ```
+
+> 生产构建**必须用 https 生产域名**生成：`NEXT_PUBLIC_APP_URL` 在构建期内联，运行时改环境变量无效。用 `http://localhost` 构建的产品会被生产自检拒绝启动；CI 的「生产构建」步骤已单独注入 https 域名。
 
 以下开关在生产环境必须删除或设为 `false`，否则服务拒绝启动：
 
@@ -331,7 +336,7 @@ TENCENT_SMS_TEMPLATE_ID=...
 - 失败锁定：5 次 / 60 秒，计数存 `throttle` 表（多实例一致）
 - 短信：同一手机号 60 秒冷却（生产，键为 HMAC 摘要，不落明文号码）
 - IP 限流：Better Auth 1.7 的数据库存储（`rate_limit` 表），多实例共享；覆盖 send-otp 与 verify；存储不可用时拒绝请求而不是静默放行
-- IP 信任边界：默认读 `x-real-ip` / `x-forwarded-for`；多级代理用 `TRUSTED_PROXY_CIDRS` 配置，否则无法解析时进入共享桶
+- IP 信任边界：生产**必须显式声明** `TRUSTED_IP_HEADERS` 或 `TRUSTED_PROXY_CIDRS`，未配置则拒绝启动、不读任何请求头；可信代理模式只解析 X-Forwarded-For 并从右往左跳过可信跳
 - 日志脱敏：错误摘要会去掉连接串、手机号、验证码与 SQL 参数
 - 数据隔离：账本成员校验 + 所有查询强制 `ledgerId` + 单资源操作禁止裸 `findUnique`
 - 导出需先解锁隐私模式
@@ -342,11 +347,14 @@ TENCENT_SMS_TEMPLATE_ID=...
 ## 测试
 
 ```bash
-npm test              # 103 项：环境守卫 / 结清 / 预备并发 / 邀请 / 限流 / 日志脱敏 / schema 一致性
-npm run build         # 严格生产构建
-npm run check:prod-guard  # 反向校验：生产构建拒绝 APP_ENV=test
+npm test              # 112 项：环境守卫 / 结清 / 预备并发 / 邀请 / 限流 / 日志脱敏 / schema 一致性 / 默认账本初始化
+npm run build         # 严格生产构建（需 NEXT_PUBLIC_APP_URL=https://<生产域名>）
+npm run check:prod-guard                                              # 生产矩阵 A/B/B2/C
+npm run build:test && node scripts/check-prod-guard.mjs test-build    # 测试构建矩阵 D/E
 npm run test:e2e      # 11 项浏览器流程（内部会先 npm run build:test）
 npm run smoke         # 70 项接口契约（需先启动测试构建并 seed）
+npm run db:cleanup -- --dry-run   # 限流表清理预演；去掉 --dry-run 才真删
+npm run cf:build      # Cloudflare / OpenNext 产物构建
 ```
 
 - 服务层测试用 **PGlite**（WASM Postgres）起真实 SQL：迁移脚本全量执行，事务、唯一索引、条件更新都是真的；不需要 Docker。

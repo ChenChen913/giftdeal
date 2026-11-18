@@ -1,3 +1,6 @@
+// 必须排在 @/server/env 之前：它负责把测试进程固定成 test 环境
+import "./helpers/test-env";
+
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -30,6 +33,8 @@ const MANAGED_KEYS = [
   "TENCENT_SMS_SDK_APP_ID",
   "TENCENT_SMS_SIGN_NAME",
   "TENCENT_SMS_TEMPLATE_ID",
+  "TRUSTED_IP_HEADERS",
+  "TRUSTED_PROXY_CIDRS",
 ];
 
 /** 临时改环境变量并在结束后恢复，避免测试之间互相污染 */
@@ -63,6 +68,9 @@ const PRODUCTION_BASE: EnvPatch = {
   TENCENT_SMS_SDK_APP_ID: "1400000000",
   TENCENT_SMS_SIGN_NAME: "礼金账本",
   TENCENT_SMS_TEMPLATE_ID: "123456",
+  // 生产必须显式声明可信客户端 IP 来源，否则 IP 限流无法安全工作（第三轮新增的必填项）
+  TRUSTED_IP_HEADERS: "x-real-ip",
+  TRUSTED_PROXY_CIDRS: undefined,
   // 显式清空开发开关：CI 会把这些变量设在 job 级别，不清掉会污染「完整生产配置」用例
   OTP_ALLOW_FIXED_CODE: undefined,
   ALLOW_ADMIN_LOGIN: undefined,

@@ -47,13 +47,14 @@ export type AppEnvInput = {
 /**
  * 解析运行环境。纯函数，便于单测覆盖所有组合。
  *
- * 规则：
+ * 规则（按顺序判定）：
  * 1. 非法 APP_ENV → 抛错（安全失败，不猜测）
  * 2. 构建阶段 → 一律 production（构建产物按生产标准生成；不校验运行时密钥）
- * 3. NODE_ENV=production：
- *    - 普通构建 → 只接受 production；显式 test/development 一律拒绝
- *    - 测试构建 → 只接受 test（未设置时默认 test）
- * 4. 其他（开发 / 单测进程）→ 显式 APP_ENV 优先，否则按 NODE_ENV 推断
+ * 3. 测试构建（构建期内联标记）→ 只接受 test
+ * 4. `APP_ENV=test` 只允许来自「测试构建」或 `NODE_ENV=test`：
+ *    否则一个生产构建在 NODE_ENV 缺失/被改写时会以测试模式运行
+ * 5. NODE_ENV=production → 只接受 production，显式 test/development 一律拒绝
+ * 6. 其他（开发 / 单测进程）→ 显式 APP_ENV 优先，否则按 NODE_ENV 推断
  */
 export function resolveAppEnv(input: AppEnvInput): AppEnv {
   const raw = input.appEnv?.trim();
@@ -69,17 +70,31 @@ export function resolveAppEnv(input: AppEnvInput): AppEnv {
   // 构建阶段：不执行运行时安全判断，也不允许测试模式影响构建产物
   if (input.isBuildPhase) return "production";
 
-  if (nodeEnv === "production") {
-    if (input.isTestBuild) {
-      if (requested && requested !== "test") {
-        throw new ConfigError(
-          "APP_ENV",
-          `这是测试构建（NEXT_PUBLIC_E2E_BUILD=1），只能以 APP_ENV=test 运行，当前为 ${requested}`,
-        );
-      }
-      return "test";
+  // 测试构建：标记在构建期被内联，运行时无法伪造
+  if (input.isTestBuild) {
+    if (requested && requested !== "test") {
+      throw new ConfigError(
+        "APP_ENV",
+        `这是测试构建（NEXT_PUBLIC_E2E_BUILD=1），只能以 APP_ENV=test 运行，当前为 ${requested}`,
+      );
     }
+    return "test";
+  }
 
+  /**
+   * 关键防线：测试模式必须能被证明来源。
+   * 生产构建（没有内联标记）只有在 NODE_ENV=test 时才允许 test；
+   * 否则 `APP_ENV=test` + 缺失/被改写的 NODE_ENV 就能把生产构建降级成测试模式。
+   */
+  if (requested === "test" && nodeEnv !== "test") {
+    throw new ConfigError(
+      "APP_ENV",
+      "APP_ENV=test 只允许在 NODE_ENV=test 或显式测试构建（npm run build:test）下使用；" +
+        `当前 NODE_ENV=${nodeEnv ?? "(未设置)"}。生产构建禁止进入测试模式。`,
+    );
+  }
+
+  if (nodeEnv === "production") {
     if (requested && requested !== "production") {
       throw new ConfigError(
         "APP_ENV",
@@ -409,18 +424,123 @@ export function trustedProxyCidrs(): string[] {
     .filter(Boolean);
 }
 
+const IP_HEADER_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+/** 这些头永远不能当作客户端 IP 来源（值是凭据或与来源无关） */
+const FORBIDDEN_IP_HEADERS = new Set([
+  "authorization",
+  "cookie",
+  "proxy-authorization",
+  "host",
+  "content-length",
+  "content-type",
+  "user-agent",
+  "referer",
+]);
+
+export type CidrCheck = { ok: true; family: 4 | 6; prefix: number } | { ok: false; reason: string };
+
 /**
- * 读取客户端 IP 的请求头顺序。
- * 默认先看 x-real-ip（Vercel 等平台会覆盖为真实客户端 IP），再看 x-forwarded-for。
- * 部署方必须确认这些头由可信代理写入，客户端无法伪造。
+ * 校验 IP / CIDR 写法。只做语法与范围检查，不依赖 node:net，
+ * 这样在 Workers 运行时（没有完整 node 网络模块）也能安全调用。
  */
-export function ipAddressHeaders(): string[] {
+export function checkCidr(value: string): CidrCheck {
+  const raw = value.trim();
+  if (!raw) return { ok: false, reason: "不能为空" };
+
+  const slash = raw.lastIndexOf("/");
+  const address = slash === -1 ? raw : raw.slice(0, slash);
+  const prefixPart = slash === -1 ? null : raw.slice(slash + 1);
+
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(address);
+  if (v4) {
+    if (v4.slice(1).some((octet) => Number(octet) > 255)) {
+      return { ok: false, reason: "IPv4 段超过 255" };
+    }
+    const prefix = prefixPart === null ? 32 : Number(prefixPart);
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+      return { ok: false, reason: "IPv4 前缀必须是 0–32 的整数" };
+    }
+    return { ok: true, family: 4, prefix };
+  }
+
+  if (!address.includes(":") || !/^[0-9a-fA-F:]+$/.test(address)) {
+    return { ok: false, reason: "既不是 IPv4 也不是 IPv6" };
+  }
+  if (address.split("::").length > 2) return { ok: false, reason: "IPv6 最多只能出现一处 ::" };
+
+  const [leftPart, rightPart] = address.split("::");
+  const left = leftPart ? leftPart.split(":") : [];
+  const right = rightPart === undefined ? [] : rightPart ? rightPart.split(":") : [];
+  const groups = [...left, ...right];
+  if (groups.some((group) => group.length === 0 || group.length > 4)) {
+    return { ok: false, reason: "IPv6 分组不合法" };
+  }
+  const total = groups.length;
+  if (rightPart === undefined ? total !== 8 : total > 7) {
+    return { ok: false, reason: "IPv6 分组数量不合法" };
+  }
+
+  const prefix = prefixPart === null ? 128 : Number(prefixPart);
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 128) {
+    return { ok: false, reason: "IPv6 前缀必须是 0–128 的整数" };
+  }
+  return { ok: true, family: 6, prefix };
+}
+
+/** 客户端 IP 的来源判定方式 */
+export type IpTrustMode = "explicit-header" | "trusted-proxy" | "unconfigured";
+
+export type IpTrustConfig = {
+  mode: IpTrustMode;
+  /** 交给 Better Auth 的 ipAddressHeaders；空数组表示「不信任任何请求头」 */
+  headers: string[];
+  trustedProxies: string[];
+};
+
+/**
+ * 决定「凭什么相信这个 IP」。
+ *
+ * Better Auth 1.7 的行为（`@better-auth/core/utils/ip`）：
+ * - 配置了 `trustedProxies` 时，X-Forwarded-For 从右往左跳过可信代理，取第一个不可信跳；
+ * - 没有 `trustedProxies` 时，只信任「单值」请求头，多值一律返回 null。
+ *
+ * 因此：
+ * - 显式 `TRUSTED_IP_HEADERS` → 只读这些头（部署方保证代理会覆盖它们）；
+ * - 只配 `TRUSTED_PROXY_CIDRS` → 只用 X-Forwarded-For，右侧解析，最安全；
+ * - 两者都没配：
+ *   - 生产环境 → 不信任任何头（`headers: []`），并在启动自检里拒绝启动。
+ *     绝不「猜」客户端 IP：单值头是客户端可以直接伪造的。
+ *   - 开发 / 测试 → 保留 x-real-ip → x-forwarded-for，方便本地与 CI 指定来源。
+ */
+export function ipTrustConfig(envName: AppEnv = appEnv): IpTrustConfig {
+  const proxies = trustedProxyCidrs();
   const raw = process.env.TRUSTED_IP_HEADERS?.trim();
-  if (!raw) return ["x-real-ip", "x-forwarded-for"];
-  return raw
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
+
+  if (raw) {
+    const headers = raw
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    return { mode: "explicit-header", headers, trustedProxies: proxies };
+  }
+  if (proxies.length > 0) {
+    // 有可信代理时只认 XFF：此时再读单值 x-real-ip 反而会绕过右侧解析
+    return { mode: "trusted-proxy", headers: ["x-forwarded-for"], trustedProxies: proxies };
+  }
+  if (envName === "production") {
+    return { mode: "unconfigured", headers: [], trustedProxies: [] };
+  }
+  return {
+    mode: "explicit-header",
+    headers: ["x-real-ip", "x-forwarded-for"],
+    trustedProxies: [],
+  };
+}
+
+/** 读取客户端 IP 的请求头顺序（兼容旧调用点） */
+export function ipAddressHeaders(envName: AppEnv = appEnv): string[] {
+  return ipTrustConfig(envName).headers;
 }
 
 // ------------------------------------------------------------
@@ -507,24 +627,79 @@ export function collectConfigProblems(envName: AppEnv = appEnv): ConfigProblem[]
     add("ALLOW_LAN_ACCESS", "生产环境禁止放行局域网来源，请删除该变量或设为 false");
   }
 
+  // ---- 客户端 IP 信任边界（IP 限流的前提）----
+  const trust = ipTrustConfig(envName);
+  if (trust.mode === "unconfigured") {
+    add(
+      "TRUSTED_IP_HEADERS",
+      "必须显式声明可信的客户端 IP 来源，否则无法安全限流：" +
+        "平台会覆盖请求头时设 TRUSTED_IP_HEADERS=x-real-ip（Vercel）或 cf-connecting-ip（Cloudflare）；" +
+        "代理会追加 X-Forwarded-For 时设 TRUSTED_PROXY_CIDRS=<代理网段>。",
+    );
+  } else {
+    for (const header of trust.headers) {
+      if (!IP_HEADER_NAME.test(header)) {
+        add("TRUSTED_IP_HEADERS", `非法的请求头名：${header}`);
+      } else if (FORBIDDEN_IP_HEADERS.has(header)) {
+        add("TRUSTED_IP_HEADERS", `不能把 ${header} 当作客户端 IP 来源`);
+      }
+    }
+    if (trust.headers.length === 0) {
+      add("TRUSTED_IP_HEADERS", "不能为空；至少声明一个可信的客户端 IP 请求头");
+    }
+  }
+
+  for (const proxy of trust.trustedProxies) {
+    const check = checkCidr(proxy);
+    if (!check.ok) {
+      add("TRUSTED_PROXY_CIDRS", `"${proxy}" 不是合法的 IP / CIDR：${check.reason}`);
+    } else if (check.prefix === 0) {
+      add(
+        "TRUSTED_PROXY_CIDRS",
+        `"${proxy}" 覆盖全部地址，等于信任任何来源，请写入真实的代理网段`,
+      );
+    }
+  }
+
   return problems;
 }
 
 /**
  * 非致命的配置提醒（不会阻止启动）。
- * 目前只有一条：没有配置可信代理时，IP 限流依赖平台覆盖 X-Forwarded-For。
+ * 只列「配置合法但很可能没达到预期」的情况，避免把真正的错误稀释掉。
  */
 export function collectConfigWarnings(envName: AppEnv = appEnv): string[] {
   if (envName !== "production") return [];
   const warnings: string[] = [];
+  const trust = ipTrustConfig(envName);
 
-  if (trustedProxyCidrs().length === 0) {
+  if (trust.mode === "explicit-header") {
     warnings.push(
-      "未配置 TRUSTED_PROXY_CIDRS：IP 限流将信任单值 X-Forwarded-For / X-Real-IP。" +
-        "请确认反向代理会覆盖该头（Vercel 会），否则攻击者可伪造 IP 绕过 IP 限流；" +
-        "手机号级冷却与全局限制仍然生效。",
+      `已信任请求头 ${trust.headers.join(" / ")}：请确认反向代理会覆盖这些头（客户端可以自行设置），` +
+        "否则伪造该头即可换一个限流桶。",
     );
+    if (trust.headers.includes("x-forwarded-for") && trust.trustedProxies.length === 0) {
+      warnings.push(
+        "TRUSTED_IP_HEADERS 含 x-forwarded-for 但没有配置 TRUSTED_PROXY_CIDRS：" +
+          "代理追加多级地址时 Better Auth 会拒绝解析并退化为共享桶（所有用户共用一个 IP 配额）。" +
+          "若代理只是覆盖单值可以忽略；否则请配置可信代理网段。",
+      );
+    }
   }
+
+  for (const proxy of trust.trustedProxies) {
+    const check = checkCidr(proxy);
+    if (!check.ok) continue;
+    const tooBroad =
+      (check.family === 4 && check.prefix < 8) || (check.family === 6 && check.prefix < 16);
+    if (tooBroad) {
+      warnings.push(
+        `TRUSTED_PROXY_CIDRS 中的 "${proxy}" 覆盖范围过大，可能把普通客户端也当成可信代理；` +
+          "这不会直接放行请求，但会让 IP 解析退化为共享桶。",
+      );
+    }
+  }
+
   return warnings;
 }
 
@@ -537,6 +712,8 @@ export class ProductionConfigError extends Error {
         "生产环境配置检查未通过，服务已拒绝启动：",
         ...problems.map((item) => `  - ${item.key}: ${item.message}`),
         "本地演示/CI 请设置 APP_ENV=test；真实部署请补齐上述配置。",
+        "注意：NEXT_PUBLIC_* 变量在构建期已内联进产物，运行时修改无效；" +
+          "若问题出在这类变量上，请在构建时配置正确后重新构建。",
       ].join("\n"),
     );
     this.name = "ProductionConfigError";

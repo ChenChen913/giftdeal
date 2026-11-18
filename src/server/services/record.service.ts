@@ -180,8 +180,11 @@ export async function createRecord(ctx: LedgerContext, input: CreateRecordInput)
       where: eq(record.id, target.id),
       with: recordWith,
     });
+    if (!created || !settled) {
+      throw new AppError("INTERNAL_ERROR", undefined, "结清后读取记录失败");
+    }
 
-    return { record: recordToDto(created!), settledRecord: recordToDto(settled!) };
+    return { record: recordToDto(created), settledRecord: recordToDto(settled) };
   });
 }
 
@@ -212,7 +215,11 @@ export async function updateRecord(
     if (eventRows.length === 0) throw new AppError("NOT_FOUND", undefined, "关联的事件不存在");
   }
 
-  await db
+  /**
+   * 条件 UPDATE 直接返回受影响行：并发软删之后这里会拿到 0 行，
+   * 于是返回 404 而不是把已删除的记录当成更新成功再读出来。
+   */
+  const updated = await db
     .update(record)
     .set({
       ...(input.amountCents !== undefined ? { amountCents: input.amountCents } : {}),
@@ -231,10 +238,17 @@ export async function updateRecord(
         eq(record.ledgerId, ctx.ledgerId),
         isNull(record.deletedAt),
       ),
-    );
+    )
+    .returning({ id: record.id });
+
+  if (updated.length === 0) throw new AppError("NOT_FOUND");
 
   const row = await db.query.record.findFirst({
-    where: eq(record.id, recordId),
+    where: and(
+      eq(record.id, recordId),
+      eq(record.ledgerId, ctx.ledgerId),
+      isNull(record.deletedAt),
+    ),
     with: recordWith,
   });
   if (!row) throw new AppError("NOT_FOUND");

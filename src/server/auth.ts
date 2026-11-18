@@ -12,9 +12,9 @@ import { db } from "@/server/db-drizzle";
 import { fixedCodeForEnvironment, getOtpProvider, maskPhoneForLog } from "./otp";
 import {
   devOnlyFlag,
-  ipAddressHeaders,
+  ipTrustConfig,
+  isProduction,
   rateLimitEnabled,
-  trustedProxyCidrs,
 } from "./env";
 import { logServerError } from "./http/log";
 import { account, rateLimit, session, user, verification } from "./schema";
@@ -88,6 +88,13 @@ async function sendOtpOrThrow(phone: string, code: string): Promise<void> {
 const fixedCode = fixedCodeForEnvironment();
 
 /**
+ * 客户端 IP 的信任来源（见 env.ts 的 ipTrustConfig）。
+ * 生产环境未配置可信来源时 headers 为空数组：Better Auth 不会读取任何请求头，
+ * IP 限流退化为共享桶并在启动自检阶段直接拒绝启动。
+ */
+const ipTrust = ipTrustConfig();
+
+/**
  * Better Auth 配置。
  *
  * 认证方式：手机号 + 短信验证码（phoneNumber 插件）
@@ -103,14 +110,12 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   /**
    * 本地用 localhost 或 127.0.0.1 打开都算同源，避免因为 host 写法不同被判 Invalid origin。
-   * 生产环境只会有真实域名，这两条不会生效。
+   * 生产环境只认真实域名：不把 localhost 加进白名单，避免生产构建被本地来源利用。
    */
   trustedOrigins: [
     ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
     ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    ...lanOrigins(),
+    ...(isProduction ? [] : ["http://localhost:3000", "http://127.0.0.1:3000", ...lanOrigins()]),
   ],
   /**
    * 限流：
@@ -179,14 +184,14 @@ export const auth = betterAuth({
     database: { joins: true },
     /**
      * IP 信任边界：
-     * - 默认先读 x-real-ip（Vercel 等平台会覆盖），再读 x-forwarded-for；
-     * - 多级 XFF 只有在 TRUSTED_PROXY_CIDRS 配置了可信代理时才解析，
-     *   否则 Better Auth 会退化为「no-trusted-ip」共享桶，避免伪造单个 IP 横向绕过；
-     * - 手机号级冷却与全局发送上限不依赖 IP。
+     * - 只读 ipTrustConfig 决定的可信请求头；生产未配置时是空数组（不猜任何头）；
+     * - 配了 TRUSTED_PROXY_CIDRS 时只用 X-Forwarded-For，由 Better Auth 从右往左
+     *   跳过可信代理取第一个不可信跳 —— 客户端伪造左侧地址不影响结果；
+     * - 手机号级冷却（throttle 表）不依赖 IP，换桶也绕不过去。
      */
     ipAddress: {
-      ipAddressHeaders: ipAddressHeaders(),
-      ...(trustedProxyCidrs().length > 0 ? { trustedProxies: trustedProxyCidrs() } : {}),
+      ipAddressHeaders: ipTrust.headers,
+      ...(ipTrust.trustedProxies.length > 0 ? { trustedProxies: ipTrust.trustedProxies } : {}),
     },
   },
 });

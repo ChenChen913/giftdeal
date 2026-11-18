@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -143,6 +143,13 @@ export const membership = pgTable(
   (t) => [
     uniqueIndex("membership_ledger_id_user_id_key").on(t.ledgerId, t.userId),
     index("membership_user_id_idx").on(t.userId),
+    /**
+     * 每本账本最多一个 OWNER（部分唯一索引，见迁移 20261118150000）。
+     * Prisma schema 无法声明部分索引，所以这条约束只存在于数据库与这里。
+     */
+    uniqueIndex("membership_one_owner_per_ledger")
+      .on(t.ledgerId)
+      .where(sql`${t.role} = 'OWNER'`),
   ],
 );
 

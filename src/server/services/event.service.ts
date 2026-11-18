@@ -288,8 +288,12 @@ export async function updateEvent(
     )
     .returning();
 
+  const row = updated[0];
+  // 并发软删之后 UPDATE 会命中 0 行，这里必须显式失败而不是拿 undefined 去 toDto
+  if (!row) throw new AppError("NOT_FOUND");
+
   const summary = (await summaryMap(ctx.ledgerId, [eventId])).get(eventId) ?? emptySummary();
-  return toDto(updated[0], summary);
+  return toDto(row, summary);
 }
 
 /** 软删事件：礼金记录本身保留，只是解除关联 */
