@@ -11,31 +11,115 @@
  * - test：CI / 冒烟 / E2E。允许 mock 短信与固定验证码，但日志不打印验证码
  * - production：真实部署。禁止 mock 短信、固定验证码、admin 快捷登录、局域网白名单
  *
- * APP_ENV 未设置时按 NODE_ENV 推断：production → production，其余 → development。
- * 也就是说：**生产构建默认走最严格的一档**，必须显式降级才会放开（CI 会显式设 test）。
- *
- * 注意：本模块只做「读 + 校验」，不主动连接任何外部服务，可以在构建期安全导入。
+ * 运行时安全边界（2026-11 加固）：
+ * - `NODE_ENV=production` 的进程只允许 `APP_ENV=production`。
+ *   误配 `APP_ENV=test` 会直接拒绝启动，而不是悄悄进入测试模式。
+ * - 唯一例外是「显式标记的测试构建」：构建时设置 `NEXT_PUBLIC_E2E_BUILD=1`，
+ *   该值会被 Next 内联进产物；运行时无法通过环境变量伪造。
+ *   真实生产构建永远没有这个标记，因此 `APP_ENV=test` 无法生效。
+ * - `next build` 阶段（NEXT_PHASE=phase-production-build）不做运行时判断，
+ *   也永远不会因为缺少运行时密钥而失败；构建产物一律按 production 处理。
  */
 
 export type AppEnv = "development" | "test" | "production";
 
 export const APP_ENVS: readonly AppEnv[] = ["development", "test", "production"];
 
-function readAppEnv(): AppEnv {
-  const raw = process.env.APP_ENV?.trim();
-  if (raw) {
-    if ((APP_ENVS as readonly string[]).includes(raw)) return raw as AppEnv;
-    throw new Error(`APP_ENV 只能是 ${APP_ENVS.join(" / ")} 之一，当前值：${raw}`);
+export class ConfigError extends Error {
+  readonly key: string;
+
+  constructor(key: string, message: string) {
+    super(message);
+    this.name = "ConfigError";
+    this.key = key;
   }
-  if (process.env.NODE_ENV === "production") return "production";
-  if (process.env.NODE_ENV === "test") return "test";
-  return "development";
 }
 
-export const appEnv: AppEnv = readAppEnv();
+export type AppEnvInput = {
+  nodeEnv?: string;
+  appEnv?: string;
+  /** Next 构建阶段（NEXT_PHASE=phase-production-build） */
+  isBuildPhase?: boolean;
+  /** 构建时是否显式打了测试标记（NEXT_PUBLIC_E2E_BUILD=1，被内联进产物） */
+  isTestBuild?: boolean;
+};
+
+/**
+ * 解析运行环境。纯函数，便于单测覆盖所有组合。
+ *
+ * 规则：
+ * 1. 非法 APP_ENV → 抛错（安全失败，不猜测）
+ * 2. 构建阶段 → 一律 production（构建产物按生产标准生成；不校验运行时密钥）
+ * 3. NODE_ENV=production：
+ *    - 普通构建 → 只接受 production；显式 test/development 一律拒绝
+ *    - 测试构建 → 只接受 test（未设置时默认 test）
+ * 4. 其他（开发 / 单测进程）→ 显式 APP_ENV 优先，否则按 NODE_ENV 推断
+ */
+export function resolveAppEnv(input: AppEnvInput): AppEnv {
+  const raw = input.appEnv?.trim();
+  if (raw && !(APP_ENVS as readonly string[]).includes(raw)) {
+    throw new ConfigError(
+      "APP_ENV",
+      `APP_ENV 只能是 ${APP_ENVS.join(" / ")} 之一，当前值：${raw}`,
+    );
+  }
+  const requested = (raw || undefined) as AppEnv | undefined;
+  const nodeEnv = input.nodeEnv?.trim();
+
+  // 构建阶段：不执行运行时安全判断，也不允许测试模式影响构建产物
+  if (input.isBuildPhase) return "production";
+
+  if (nodeEnv === "production") {
+    if (input.isTestBuild) {
+      if (requested && requested !== "test") {
+        throw new ConfigError(
+          "APP_ENV",
+          `这是测试构建（NEXT_PUBLIC_E2E_BUILD=1），只能以 APP_ENV=test 运行，当前为 ${requested}`,
+        );
+      }
+      return "test";
+    }
+
+    if (requested && requested !== "production") {
+      throw new ConfigError(
+        "APP_ENV",
+        `NODE_ENV=production 下只允许 APP_ENV=production（当前 ${requested}）。` +
+          "生产环境禁止使用测试/开发模式；如需运行 E2E，请使用显式测试构建（npm run build:test）。",
+      );
+    }
+    return "production";
+  }
+
+  if (requested) return requested;
+  if (!nodeEnv) {
+    // 环境识别不明确时安全失败：绝不默认成 development（会放开 mock 短信/固定码）
+    throw new ConfigError(
+      "APP_ENV",
+      "无法确定运行环境：NODE_ENV 与 APP_ENV 都未设置。请显式设置 APP_ENV=development / test / production",
+    );
+  }
+  return nodeEnv === "test" ? "test" : "development";
+}
+
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+/**
+ * NEXT_PUBLIC_* 会在构建时被内联为字面量，运行时修改环境变量无效。
+ * 这是「测试构建」与「生产构建」的唯一区分依据。
+ */
+const isTestBuild = process.env.NEXT_PUBLIC_E2E_BUILD === "1";
+
+export const appEnv: AppEnv = resolveAppEnv({
+  nodeEnv: process.env.NODE_ENV,
+  appEnv: process.env.APP_ENV,
+  isBuildPhase,
+  isTestBuild,
+});
 export const isProduction = appEnv === "production";
 export const isTest = appEnv === "test";
 export const isDevelopment = appEnv === "development";
+
+/** 当前是否为测试构建产物（供启动日志/文档使用，不参与安全判断） */
+export const isTestBuildRuntime = isTestBuild;
 
 /** 读取布尔开关：只认 "true" / "1"，其余（含未设置）都为 false */
 export function envFlag(name: string): boolean {
@@ -49,6 +133,15 @@ export function envFlag(name: string): boolean {
  */
 export function devOnlyFlag(name: string, envName: AppEnv = appEnv): boolean {
   return envName !== "production" && envFlag(name);
+}
+
+/**
+ * 限流总开关。
+ * 生产环境始终开启；测试/开发环境默认关闭，但可以用 RATE_LIMIT_ENABLED=true 打开，
+ * 以便服务层测试真实覆盖数据库限流（开启限流只会更严格，不构成安全后门）。
+ */
+export function rateLimitEnabled(envName: AppEnv = appEnv): boolean {
+  return envName === "production" || envFlag("RATE_LIMIT_ENABLED");
 }
 
 function present(value: string | undefined): boolean {
@@ -103,16 +196,6 @@ export function checkPrivacyPassword(value: string): PasswordCheck {
     return { ok: false, reason: "不能使用常见弱口令或默认密码" };
   }
   return { ok: true };
-}
-
-export class ConfigError extends Error {
-  readonly key: string;
-
-  constructor(key: string, message: string) {
-    super(message);
-    this.name = "ConfigError";
-    this.key = key;
-  }
 }
 
 /**
@@ -208,14 +291,147 @@ export function tencentSmsConfig(): TencentSmsConfig {
 }
 
 // ------------------------------------------------------------
+// URL / 连接串 / 密钥质量
+// ------------------------------------------------------------
+
+export type UrlCheck = { ok: true; url: URL } | { ok: false; reason: string };
+
+/** 校验完整 URL；requireHttps 时只接受 https */
+export function checkUrl(value: string, options: { requireHttps?: boolean } = {}): UrlCheck {
+  const raw = value.trim();
+  if (!raw) return { ok: false, reason: "不能为空" };
+
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return { ok: false, reason: "不是合法的完整 URL" };
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return { ok: false, reason: "只支持 http / https" };
+  }
+  if (options.requireHttps && url.protocol !== "https:") {
+    return { ok: false, reason: "生产环境必须使用 https" };
+  }
+  if (!url.hostname) return { ok: false, reason: "缺少主机名" };
+  return { ok: true, url };
+}
+
+/** PostgreSQL 连接串：协议、主机、数据库名缺一不可 */
+export function isPostgresUrl(value: string): boolean {
+  const raw = value.trim();
+  if (!raw || /\s/.test(raw)) return false;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") return false;
+    if (!url.hostname) return false;
+    if (!url.pathname || url.pathname === "/") return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const PLACEHOLDER_SECRET_PATTERNS: RegExp[] = [
+  /^change[-_ ]?me/i,
+  /^replace[-_ ]?me/i,
+  /^your[-_ ]/i,
+  /^example/i,
+  /^placeholder/i,
+  /^secret$/i,
+  /^password$/i,
+  /^test[-_ ]/i,
+  /^ci-only/i,
+  /^dev-only/i,
+  /请替换/,
+  /xxxx/i,
+  /\*\*\*\*/,
+];
+
+/**
+ * 会话/签名密钥质量检查：长度、字符多样性、明显占位符。
+ * 只返回原因，不回显密钥本身。
+ */
+export function checkAuthSecret(value: string): { ok: true } | { ok: false; reason: string } {
+  const secret = value.trim();
+  if (!secret) return { ok: false, reason: "不能为空" };
+  if (secret.length < 32) return { ok: false, reason: "长度至少 32 字符" };
+  if (secret.length > 256) return { ok: false, reason: "长度不能超过 256 字符" };
+  if (new Set(secret).size < 12) return { ok: false, reason: "字符重复度过高，请使用随机生成的密钥" };
+  if (PLACEHOLDER_SECRET_PATTERNS.some((pattern) => pattern.test(secret))) {
+    return { ok: false, reason: "看起来是占位符/示例值，请使用随机生成的密钥" };
+  }
+  if (/^(.)\1+$/.test(secret)) return { ok: false, reason: "不能是同一个字符重复" };
+  return { ok: true };
+}
+
+function checkTencentFormats(): string[] {
+  const problems: string[] = [];
+
+  const sdkAppId = process.env.TENCENT_SMS_SDK_APP_ID?.trim() ?? "";
+  if (sdkAppId && !/^\d{5,12}$/.test(sdkAppId)) {
+    problems.push("TENCENT_SMS_SDK_APP_ID: 应为 5–12 位数字（1400 开头）");
+  }
+
+  const templateId = process.env.TENCENT_SMS_TEMPLATE_ID?.trim() ?? "";
+  if (templateId && !/^\d{3,}$/.test(templateId)) {
+    problems.push("TENCENT_SMS_TEMPLATE_ID: 应为纯数字模板 ID");
+  }
+
+  const signName = process.env.TENCENT_SMS_SIGN_NAME?.trim() ?? "";
+  if (signName && signName.length > 20) {
+    problems.push("TENCENT_SMS_SIGN_NAME: 不能超过 20 个字符");
+  }
+
+  const secretId = process.env.TENCENT_SMS_SECRET_ID?.trim() ?? "";
+  if (secretId && secretId.length < 10) {
+    problems.push("TENCENT_SMS_SECRET_ID: 长度明显不足");
+  }
+
+  const secretKey = process.env.TENCENT_SMS_SECRET_KEY?.trim() ?? "";
+  if (secretKey && secretKey.length < 10) {
+    problems.push("TENCENT_SMS_SECRET_KEY: 长度明显不足");
+  }
+
+  return problems;
+}
+
+// ------------------------------------------------------------
+// 代理 IP 信任边界
+// ------------------------------------------------------------
+
+/** 反向代理 IP / CIDR（逗号分隔）；用于解析多级 X-Forwarded-For */
+export function trustedProxyCidrs(): string[] {
+  return (process.env.TRUSTED_PROXY_CIDRS ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/**
+ * 读取客户端 IP 的请求头顺序。
+ * 默认先看 x-real-ip（Vercel 等平台会覆盖为真实客户端 IP），再看 x-forwarded-for。
+ * 部署方必须确认这些头由可信代理写入，客户端无法伪造。
+ */
+export function ipAddressHeaders(): string[] {
+  const raw = process.env.TRUSTED_IP_HEADERS?.trim();
+  if (!raw) return ["x-real-ip", "x-forwarded-for"];
+  return raw
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+// ------------------------------------------------------------
 // 生产环境配置校验
 // ------------------------------------------------------------
 
 export type ConfigProblem = { key: string; message: string };
 
 /**
- * 列出生产环境的配置问题。纯函数式读取 process.env，方便单测覆盖。
- * 返回空数组 = 可以启动。
+ * 列出生产环境的配置问题。读取 process.env，方便单测覆盖。
+ * 返回值只包含变量名与原因，不包含任何密钥内容。
  */
 export function collectConfigProblems(envName: AppEnv = appEnv): ConfigProblem[] {
   if (envName !== "production") return [];
@@ -225,17 +441,30 @@ export function collectConfigProblems(envName: AppEnv = appEnv): ConfigProblem[]
 
   const secret = process.env.BETTER_AUTH_SECRET?.trim() ?? "";
   if (!secret) add("BETTER_AUTH_SECRET", "必须配置会话与隐私 Cookie 的签名密钥");
-  else if (secret.length < 32) add("BETTER_AUTH_SECRET", "长度至少 32 字符（建议 openssl rand -base64 32）");
+  else {
+    const check = checkAuthSecret(secret);
+    if (!check.ok) add("BETTER_AUTH_SECRET", `${check.reason}（建议 openssl rand -base64 32）`);
+  }
 
   const authUrl = process.env.BETTER_AUTH_URL?.trim() ?? "";
   if (!authUrl) add("BETTER_AUTH_URL", "必须配置生产域名，例如 https://example.com");
-  else if (!/^https?:\/\//.test(authUrl)) add("BETTER_AUTH_URL", "必须是完整的 http(s) 地址");
-
-  if (!present(process.env.NEXT_PUBLIC_APP_URL)) {
-    add("NEXT_PUBLIC_APP_URL", "必须配置邀请链接使用的站点地址");
+  else {
+    const check = checkUrl(authUrl, { requireHttps: true });
+    if (!check.ok) add("BETTER_AUTH_URL", check.reason);
   }
 
-  if (!present(process.env.DATABASE_URL)) add("DATABASE_URL", "必须配置数据库连接串");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "";
+  if (!appUrl) add("NEXT_PUBLIC_APP_URL", "必须配置邀请链接使用的站点地址");
+  else {
+    const check = checkUrl(appUrl, { requireHttps: true });
+    if (!check.ok) add("NEXT_PUBLIC_APP_URL", check.reason);
+  }
+
+  const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
+  if (!databaseUrl) add("DATABASE_URL", "必须配置数据库连接串");
+  else if (!isPostgresUrl(databaseUrl)) {
+    add("DATABASE_URL", "必须是合法的 PostgreSQL 连接串（postgres:// 或 postgresql://，含主机与库名）");
+  }
 
   try {
     privacyPassword(envName);
@@ -260,6 +489,11 @@ export function collectConfigProblems(envName: AppEnv = appEnv): ConfigProblem[]
     const missing = missingTencentSmsKeys();
     if (missing.length > 0) {
       add("TENCENT_SMS_*", `腾讯云短信缺少环境变量：${missing.join("、")}`);
+    } else {
+      for (const message of checkTencentFormats()) {
+        const [key, ...rest] = message.split(":");
+        add(key.trim(), rest.join(":").trim());
+      }
     }
   }
 
@@ -274,6 +508,24 @@ export function collectConfigProblems(envName: AppEnv = appEnv): ConfigProblem[]
   }
 
   return problems;
+}
+
+/**
+ * 非致命的配置提醒（不会阻止启动）。
+ * 目前只有一条：没有配置可信代理时，IP 限流依赖平台覆盖 X-Forwarded-For。
+ */
+export function collectConfigWarnings(envName: AppEnv = appEnv): string[] {
+  if (envName !== "production") return [];
+  const warnings: string[] = [];
+
+  if (trustedProxyCidrs().length === 0) {
+    warnings.push(
+      "未配置 TRUSTED_PROXY_CIDRS：IP 限流将信任单值 X-Forwarded-For / X-Real-IP。" +
+        "请确认反向代理会覆盖该头（Vercel 会），否则攻击者可伪造 IP 绕过 IP 限流；" +
+        "手机号级冷却与全局限制仍然生效。",
+    );
+  }
+  return warnings;
 }
 
 export class ProductionConfigError extends Error {

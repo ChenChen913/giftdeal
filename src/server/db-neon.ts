@@ -15,7 +15,11 @@ import * as schema from "./schema";
  * 为什么用 WebSocket 而不是 HTTP 驱动：本项目有多处交互式事务
  * （结清关系、软删除联动等），HTTP 驱动只支持预定义 batch，无法在事务中读中间结果。
  */
-const connectionString = process.env.DATABASE_URL;
+/** 构建阶段用占位串，避免缺运行时连接串导致 next build 失败（不会真正连接） */
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+const connectionString =
+  process.env.DATABASE_URL?.trim() ||
+  (isBuildPhase ? "postgresql://build:build@127.0.0.1:1/build" : "");
 
 if (!connectionString) {
   throw new Error("缺少环境变量 DATABASE_URL");

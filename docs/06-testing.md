@@ -8,8 +8,8 @@
 
 | 层 | 工具 | 跑什么 | 依赖 |
 |---|---|---|---|
-| 单元 | Node Test Runner + tsx | 日期、金额、遮罩、密码策略、生产配置校验 | 无 |
-| 服务层 | Node Test Runner + PGlite | 结清、预备完成、邀请、软删除、统计、限流 | 临时 PGlite（自动起停） |
+| 单元 | Node Test Runner + tsx | 日期、金额、遮罩、环境判定矩阵、密码/URL/密钥校验 | 无 |
+| 服务层 | Node Test Runner + PGlite | 结清、预备并发、邀请、软删除、统计、限流、schema 一致性 | 临时 PGlite（自动起停） |
 | 接口 | `scripts/smoke.mjs` | 真实 HTTP 契约（登录 → 记账 → 结清 → 邀请 → 隐私） | 已迁移 + seed 的库 + 已启动服务 |
 | 浏览器 | Playwright (Chromium) | 登录、记一笔、对账、结清、预备、邀请、移动端导航 | 生产构建 + 独立 PGlite |
 
@@ -111,8 +111,13 @@ const recordService = await import("@/server/services/record.service");
 
 | 文件 | 覆盖 |
 |---|---|
+| `tests/env-guard.test.ts` | 环境判定矩阵（生产 + test 拒绝、构建阶段、测试构建、非法值）、URL/HTTPS、DATABASE_URL、密钥占位符、生产配置清单 |
 | `tests/security-config.test.ts` | 密码强度、生产必填项、mock 短信 / 固定码 / admin / 局域网拦截、日志手机号打码 |
-| `tests/privacy-lockout.test.ts` | 错误计数、5 次锁定、锁定时正确密码也拒绝、按用户隔离、Cookie 绑定用户 / 篡改无效、成功后清零 |
+| `tests/log-redaction.test.ts` | 连接串 / 手机号 / 验证码 / SQL params 脱敏，超长截断 |
+| `tests/privacy-lockout.test.ts` | 错误计数、5 次锁定、锁定时正确密码也拒绝、按用户隔离、Cookie 绑定用户 / 篡改无效、非法百分号编码不抛错、成功后清零 |
+| `tests/throttle.test.ts` | 手机号键为 HMAC 摘要、窗口语义、并发计数、过期清理不误删有效窗口 |
+| `tests/rate-limit.test.ts` | 同 IP 发送第 6 次 429、验证第 11 次 429、不同 IP 隔离、换 IP 不能绕过手机号冷却、多值 XFF 共享桶、跨进程共享计数、存储异常拒绝请求 |
+| `tests/schema-consistency.test.ts` | Drizzle 与迁移后的真实库列名/可空性/默认值一致、关键唯一索引存在 |
 
 ### 3.6 E2E（`e2e/*.spec.ts`）
 
@@ -140,13 +145,18 @@ npm test
 
 # 接口冒烟：先迁移 + seed + 起服务
 npm run db:local &
-npx prisma migrate deploy && npm run db:seed
-npm run build && npm run start &
+npx prisma migrate deploy
+npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+npm run db:seed
+npm run build:test && APP_ENV=test npm run start &
 npm run smoke
 
-# E2E：先构建，再跑（Playwright 自己起库与服务）
-npm run build
+# E2E：内部会构建测试产物（NEXT_PUBLIC_E2E_BUILD=1），不需要先 build
 npm run test:e2e
+
+# 反向验证：严格生产构建必须拒绝 APP_ENV=test
+npm run build
+npm run check:prod-guard
 ```
 
 E2E 的隔离方式：
@@ -155,6 +165,7 @@ E2E 的隔离方式：
 - 端口：应用 3100、数据库 55440，不碰本地开发环境；
 - 账号：每个用例用新手机号注册，账本天然隔离；
 - 短信：`APP_ENV=test` + 固定码，不调用真实通道；
+- 构建：`NEXT_PUBLIC_E2E_BUILD=1` 在构建期内联，运行时无法把生产构建切换成测试模式；
 - 失败产物：`test-results/`（截图 + trace），CI 会作为 artifact 上传。
 
 ---
@@ -163,7 +174,13 @@ E2E 的隔离方式：
 
 `.github/workflows/ci.yml` 两个 job：
 
-1. `verify`：`npm ci` → `typecheck` → `npm test` → `build` → 起 PGlite + migrate + seed + start → `smoke`；
+1. `verify`：`npm ci` → `typecheck` → `npm test` → 严格 `build` → `check:prod-guard` → `build:test` → 起 PGlite + migrate + seed + start → `smoke`；
 2. `e2e`：`npm ci` → 安装 Chromium → `build` → `test:e2e` → 失败时上传报告。
 
-CI 显式设置 `APP_ENV=test`，所以生产构建可以使用 mock 短信与固定验证码；真实生产（`APP_ENV=production`）会在启动自检阶段拒绝这些配置。
+CI 显式设置 `APP_ENV=test`，但严格构建产物在运行时会拒绝 test：所以冒烟/E2E 使用带内联标记的 `build:test` 产物。真实生产（`APP_ENV=production`）会在启动自检阶段拒绝 mock 短信与固定验证码。
+
+### 5.1 限流测试的边界
+
+- 生产环境的 IP 来自 `x-real-ip` / `x-forwarded-for`。测试里直接构造请求头，验证的是「限流逻辑 + 数据库共享」；
+- 实际防伪造依赖反向代理覆盖请求头。`TRUSTED_PROXY_CIDRS` 可解析多级代理链；未配置时多值头进入共享桶，不会为每个伪造 IP 开新桶；
+- 手机号冷却不依赖 IP，是本项目对「换 IP 刷短信」的最终兜底。

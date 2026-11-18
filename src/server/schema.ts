@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   date,
   index,
@@ -287,6 +288,22 @@ export const throttle = pgTable("throttle", {
   windowStart: timestamp("window_start", { precision: 3 }).notNull().defaultNow(),
   updatedAt,
 });
+
+/**
+ * Better Auth 数据库限流表。
+ * 由 `rateLimit.storage = "database"` 使用，字段名必须与 BaseRateLimit 一致。
+ * lastRequest 是毫秒时间戳（BigInt），Drizzle 以 number 模式读写。
+ */
+export const rateLimit = pgTable(
+  "rate_limit",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull(),
+    count: integer("count").notNull(),
+    lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+  },
+  (t) => [uniqueIndex("rate_limit_key_key").on(t.key)],
+);
 
 // ------------------------------------------------------------
 // 关系（只用于 query API 的 with/join，不生成 DDL）

@@ -120,3 +120,35 @@ test("锁定到期后可以重新尝试（清空计数模拟窗口过期）", as
   const cookie = await privacy.verifyPrivacyPassword(userId, DEV_PASSWORD);
   assert.ok(cookie.value);
 });
+
+test("异常 Cookie（非法百分号编码 / 乱码）按未解锁处理，不抛 500", async () => {
+  const userId = await createUser(db);
+
+  const malformed = [
+    "%E0%A4%A",
+    "%",
+    "%ZZ",
+    "%E4%ZZ",
+    "abc%",
+    "not-a-token",
+    "",
+    "a.b.c",
+  ];
+
+  for (const value of malformed) {
+    const request = new Request("http://localhost/api/v1/privacy/status", {
+      headers: { cookie: `${privacy.PRIVACY_COOKIE}=${value}` },
+    });
+    assert.doesNotThrow(() => privacy.privacyStatus(request, userId));
+    assert.equal(privacy.privacyStatus(request, userId).unlocked, false, `cookie=${value}`);
+  }
+});
+
+test("Cookie 头格式异常（缺少等号 / 多个分号）不影响判定", async () => {
+  const userId = await createUser(db);
+  const request = new Request("http://localhost/api/v1/privacy/status", {
+    headers: { cookie: `foo; ${privacy.PRIVACY_COOKIE}; bar=baz` },
+  });
+
+  assert.equal(privacy.privacyStatus(request, userId).unlocked, false);
+});

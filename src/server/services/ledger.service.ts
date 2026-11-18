@@ -197,9 +197,24 @@ export async function leaveLedger(ctx: LedgerContext) {
   }
 
   await db.transaction(async (tx) => {
-    await tx
+    /**
+     * 条件删除：只允许删除 MEMBER 身份。
+     * 并发场景下，如果另一个请求刚把 OWNER 转让给当前用户，
+     * 这里会删不到行并整体回滚，避免出现「没有 OWNER 的账本」。
+     */
+    const removed = await tx
       .delete(membership)
-      .where(and(eq(membership.ledgerId, ctx.ledgerId), eq(membership.userId, ctx.userId)));
+      .where(
+        and(
+          eq(membership.ledgerId, ctx.ledgerId),
+          eq(membership.userId, ctx.userId),
+          eq(membership.role, "MEMBER"),
+        ),
+      )
+      .returning({ id: membership.id });
+    if (removed.length === 0) {
+      throw new AppError("CONFLICT", undefined, "你已成为该账本管理员，请先转让管理员再退出");
+    }
 
     const userRows = await tx
       .select({ defaultLedgerId: userTable.defaultLedgerId })

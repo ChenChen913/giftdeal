@@ -94,7 +94,7 @@ model User {
   defaultLedgerId String? @map("default_ledger_id")
 
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   defaultLedger Ledger? @relation("UserDefaultLedger", fields: [defaultLedgerId], references: [id], onDelete: SetNull)
 
@@ -115,7 +115,7 @@ model Session {
   expiresAt DateTime @map("expires_at")
   token     String   @unique
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   ipAddress String?  @map("ip_address")
   userAgent String?  @map("user_agent")
   userId    String   @map("user_id")
@@ -139,7 +139,7 @@ model Account {
   scope                 String?
   password              String?
   createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -153,7 +153,7 @@ model Verification {
   value      String
   expiresAt  DateTime @map("expires_at")
   createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@index([identifier])
   @@map("verification")
@@ -168,7 +168,7 @@ model Ledger {
   name String @db.VarChar(50)
 
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   memberships Membership[]
   contacts    Contact[]
@@ -213,7 +213,7 @@ model Contact {
   deletedAt DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   ledger  Ledger   @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
   records Record[]
@@ -255,7 +255,7 @@ model Record {
   deletedAt DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   ledger  Ledger  @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -338,7 +338,7 @@ model GiftPlan {
   deletedAt DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   ledger    Ledger  @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -373,7 +373,7 @@ model LifeEvent {
   deletedAt DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   ledger  Ledger   @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
   records Record[]
@@ -392,7 +392,19 @@ model Throttle {
   count       Int      @default(0)
   /// 当前窗口的起点
   windowStart DateTime @default(now()) @map("window_start") @db.Timestamp(3)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(3)
 
   @@map("throttle")
+}
+
+/// Better Auth 数据库限流表（rateLimit.storage = "database"）。
+/// 字段名与 Better Auth 1.7 的 BaseRateLimit 对齐：key / count / lastRequest。
+/// lastRequest 是毫秒时间戳，必须用 BigInt，避免 2038 年后溢出。
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt @map("last_request")
+
+  @@map("rate_limit")
 }

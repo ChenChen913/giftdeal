@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import test from "node:test";
 
 import { AppError } from "@/server/http/errors";
+import { giftPlan, record } from "@/server/schema";
 import { startTestDatabase } from "./helpers/test-db";
 import { createLedgerFixture, type Db } from "./helpers/fixtures";
 
@@ -172,8 +173,8 @@ test("删除预备不影响已生成的真实记录；删除后不能完成", as
 
   await planService.deletePlan(ctx, plan.id);
 
-  const record = await recordService.getRecord(ctx, completed.record!.id);
-  assert.equal(record.id, completed.record!.id);
+  const recordAfterDelete = await recordService.getRecord(ctx, completed.record!.id);
+  assert.equal(recordAfterDelete.id, completed.record!.id);
   assert.equal(await recordCount(ledgerId), 1);
 
   const pendingPlan = await planService.createPlan(ctx, { ...planInput, contactId });
@@ -205,4 +206,98 @@ test("跨账本不能修改 / 删除 / 完成别人的预备", async () => {
     () => planService.deletePlan(ledgerB.ctx, plan.id),
     (error: unknown) => error instanceof AppError && error.code === "NOT_FOUND",
   );
+});
+
+test("已完成预备再次修改：CONFLICT，数据库字段保持完成时的状态", async () => {
+  const { ctx, contactId } = await createLedgerFixture(db);
+  const plan = await planService.createPlan(ctx, { ...planInput, contactId });
+  await planService.completePlan(ctx, plan.id, { createRecord: true, amountCents: 90_000 });
+
+  await assert.rejects(
+    () => planService.updatePlan(ctx, plan.id, { plannedCents: 1_000 }),
+    (error: unknown) => error instanceof AppError && error.code === "CONFLICT",
+  );
+
+  const [row] = await db.select().from(giftPlan).where(eq(giftPlan.id, plan.id)).limit(1);
+  assert.equal(row.status, "DONE");
+  assert.equal(row.plannedCents, 80_000, "修改不能落到已完成的预备上");
+  assert.ok(row.recordId);
+});
+
+test("已删除预备再次修改：NOT_FOUND，不会把软删数据写回", async () => {
+  const { ctx, contactId } = await createLedgerFixture(db);
+  const plan = await planService.createPlan(ctx, { ...planInput, contactId });
+  await planService.deletePlan(ctx, plan.id);
+
+  await assert.rejects(
+    () => planService.updatePlan(ctx, plan.id, { plannedCents: 1_000 }),
+    (error: unknown) => error instanceof AppError && error.code === "NOT_FOUND",
+  );
+
+  const [row] = await db.select().from(giftPlan).where(eq(giftPlan.id, plan.id)).limit(1);
+  assert.ok(row.deletedAt, "软删标记必须保留");
+  assert.equal(row.plannedCents, 80_000);
+});
+
+test("并发「修改 + 完成」：最终只有一条记录，状态与记录关联一致", async () => {
+  const { ctx, ledgerId, contactId } = await createLedgerFixture(db);
+  const plan = await planService.createPlan(ctx, { ...planInput, contactId });
+
+  const [updateResult, completeResult] = await Promise.allSettled([
+    planService.updatePlan(ctx, plan.id, { plannedCents: 123_456 }),
+    planService.completePlan(ctx, plan.id, { createRecord: true }),
+  ]);
+
+  assert.equal(completeResult.status, "fulfilled", "完成请求必须成功");
+  assert.equal(await recordCount(ledgerId), 1, "不能生成两条记录");
+
+  const [row] = await db.select().from(giftPlan).where(eq(giftPlan.id, plan.id)).limit(1);
+  assert.equal(row.status, "DONE");
+  assert.ok(row.recordId);
+
+  const [recordRow] = await db
+    .select({ id: record.id, amountCents: record.amountCents })
+    .from(record)
+    .where(eq(record.id, row.recordId!))
+    .limit(1);
+
+  if (updateResult.status === "fulfilled") {
+    // 修改先落库：完成时使用的是修改后的金额
+    assert.equal(row.plannedCents, 123_456);
+    assert.equal(recordRow.amountCents, 123_456);
+  } else {
+    // 完成先落库：修改被条件更新拒绝，金额保持原值
+    assert.equal((updateResult.reason as AppError).code, "CONFLICT");
+    assert.equal(row.plannedCents, 80_000);
+    assert.equal(recordRow.amountCents, 80_000);
+  }
+});
+
+test("并发「删除 + 完成」：不会留下半条记录，也不会出现已完成但无记录的脏状态", async () => {
+  const { ctx, ledgerId, contactId } = await createLedgerFixture(db);
+  const plan = await planService.createPlan(ctx, { ...planInput, contactId });
+
+  const [deleteResult, completeResult] = await Promise.allSettled([
+    planService.deletePlan(ctx, plan.id),
+    planService.completePlan(ctx, plan.id, { createRecord: true }),
+  ]);
+
+  assert.equal(deleteResult.status, "fulfilled", "删除请求必须成功");
+
+  const [row] = await db.select().from(giftPlan).where(eq(giftPlan.id, plan.id)).limit(1);
+  assert.ok(row.deletedAt, "预备最终必须是软删状态");
+
+  const count = await recordCount(ledgerId);
+  assert.ok(count <= 1, "最多生成一条记录");
+
+  if (completeResult.status === "fulfilled") {
+    assert.equal(count, 1);
+    assert.equal(row.status, "DONE");
+    assert.equal(row.recordId, completeResult.value.record!.id);
+  } else {
+    assert.equal((completeResult.reason as AppError).code, "NOT_FOUND");
+    assert.equal(count, 0);
+    assert.equal(row.status, "PLANNED");
+    assert.equal(row.recordId, null);
+  }
 });

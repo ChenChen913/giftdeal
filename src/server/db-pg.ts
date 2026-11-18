@@ -14,7 +14,15 @@ import * as schema from "./schema";
  *
  * Cloudflare Workers 版本不使用本文件（见 db-neon.ts 与 next.config.ts 的别名）。
  */
-const connectionString = process.env.DATABASE_URL;
+/**
+ * 构建阶段（next build）只做模块求值，不会真正连接数据库。
+ * 构建机通常没有运行时 DATABASE_URL，这里用一个必然连不上的占位串，
+ * 保证「缺少运行时密钥不会让构建失败」；生产启动时仍然严格要求真实连接串。
+ */
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+const connectionString =
+  process.env.DATABASE_URL?.trim() ||
+  (isBuildPhase ? "postgresql://build:build@127.0.0.1:1/build" : "");
 
 if (!connectionString) {
   throw new Error("缺少环境变量 DATABASE_URL");

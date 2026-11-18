@@ -2,8 +2,9 @@
  * E2E 应用进程：等数据库就绪 → 跑迁移 → 起 `next start`。
  *
  * 环境刻意用 APP_ENV=test：
- * - 跑的是生产构建（next start），但允许 mock 短信 + 固定验证码
- * - 不需要真实短信、不会污染本地演示库
+ * - 必须配合 `npm run build:test`（NEXT_PUBLIC_E2E_BUILD=1）生成的产物；
+ *   严格生产构建在 APP_ENV=test 下会拒绝启动，这是有意的安全边界
+ * - 允许 mock 短信 + 固定验证码，不需要真实短信、不污染本地演示库
  *
  * 迁移直接执行 prisma/migrations 下的 SQL，不依赖 Prisma CLI 的交互输出。
  */

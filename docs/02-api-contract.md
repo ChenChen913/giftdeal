@@ -93,6 +93,8 @@
 | `INVITE_REVOKED` | 410 | 邀请已撤销 |
 | `FORBIDDEN` | 403 | 角色不足（如非 OWNER 改账本名） |
 | `RATE_LIMITED` | 429 | 业务限流（当前路由层未直接返回，保留给后续接口） |
+
+> 认证接口（`/api/auth/phone-number/*`）的 429 由 Better Auth 返回，响应体是 `{ "message": "Too many requests..." }`，不是本项目的统一信封。限流计数存 `rate_limit` 表，多实例共享。
 | `PRIVACY_PASSWORD_INVALID` | 422 | 隐私密码不正确 |
 | `PRIVACY_LOCKED` | 429 | 隐私密码连续错误 5 次，锁定 1 分钟 |
 | `PRIVACY_UNAVAILABLE` | 503 | 生产环境未正确配置隐私密码（缺失或强度不足） |

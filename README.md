@@ -50,12 +50,13 @@
 - 隐私密码不再回退默认值；失败锁定改为数据库计数（多实例一致）
 - 短信发送失败会明确报错，不再「提示已发送但没收到」
 - 修复 Drizzle 迁移后遗留的三处阻断性问题（详见提交记录）：会话查询缺关系、`updated_at` 无默认值、删除送出记录不回退结清
+- 第二轮加固：生产运行禁止 `APP_ENV=test` 降级；IP 限流改数据库存储（多实例共享）；预备修改改为条件更新；限流键手机号 HMAC；非法 Cookie 不再 500；错误日志脱敏
 
 自动化验证（本地实际运行结果，详见 [docs/06-testing.md](docs/06-testing.md)）：
 
 | 套件 | 数量 | 命令 |
 |---|---|---|
-| 单元 + 服务层测试 | **62** | `npm test` |
+| 单元 + 服务层测试 | **103** | `npm test` |
 | 接口冒烟 | **70** | `npm run smoke` |
 | Playwright E2E | **11** | `npm run test:e2e` |
 
@@ -144,6 +145,12 @@ npx prisma migrate deploy     # 建表
 npm run db:seed               # 演示数据
 ```
 
+> 注意：`NEXT_PUBLIC_APP_URL` 等 `NEXT_PUBLIC_*` 变量由 Next 在**构建时内联**，运行时再改不生效；生产部署必须在构建环境里配置正确。
+>
+> 本地如果要跑构建产物（例如验证生产行为），请用测试构建：
+> `npm run build:test` + `APP_ENV=test npm run start`。
+> 严格生产构建（`npm run build`）在 `APP_ENV=test/development` 下会拒绝启动，这是设计上的安全边界。
+
 打开 <http://localhost:3000>：
 
 | 方式 | 输入 | 前提 |
@@ -187,11 +194,13 @@ npm run dev
 |---|---|
 | `npm run dev:local` | 本地数据库 + 开发服务 |
 | `npm run dev` | 只起开发服务（需数据库已在跑） |
-| `npm run build` | `prisma generate` + 生产构建 |
+| `npm run build` | `prisma generate` + 严格生产构建 |
+| `npm run build:test` | 测试构建（CI / E2E 专用，带内联标记） |
+| `npm run check:prod-guard` | 反向校验：生产构建拒绝 `APP_ENV=test` |
 | `npm run start` | 启动生产构建 |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | 单元 + 服务层测试（自动起临时 PGlite） |
-| `npm run test:e2e` | Playwright E2E（需先 `npm run build`） |
+| `npm run test:e2e` | Playwright E2E（内部自动构建测试产物） |
 | `npm run smoke` | 接口冒烟（需服务已启动 + 已 seed） |
 | `npm run db:deploy` | 应用迁移（生产 / CI） |
 | `npm run db:seed` | 写入演示数据（幂等） |
@@ -291,7 +300,9 @@ tests/                   服务层测试与 PGlite 夹具
 | `test` | 同开发，但日志不打印验证码；用于 CI / 冒烟 / E2E |
 | `production` | 禁止 mock、固定码、admin 登录、局域网白名单；缺配置直接拒绝启动 |
 
-未设置时按 `NODE_ENV` 推断：`production` 构建默认就是 `production`。生产启动会执行 `src/instrumentation.ts` 的自检，列出所有问题后退出。
+`NODE_ENV=production` 的进程**只允许** `APP_ENV=production`：误配 `APP_ENV=test` 会直接拒绝启动，无法把生产环境降级成测试模式。唯一例外是显式测试构建（`npm run build:test`，标记在构建时内联，运行时无法伪造），只能用于 CI / E2E。
+
+未设置 `APP_ENV` 时按 `NODE_ENV` 推断（production → production）。生产启动会执行 `src/instrumentation.ts` 的自检，列出所有问题后退出。构建阶段（`next build`）不校验运行时密钥，也不会因为缺少 `DATABASE_URL` / `BETTER_AUTH_SECRET` 而失败。
 
 ### 生产必填
 
@@ -318,7 +329,10 @@ TENCENT_SMS_TEMPLATE_ID=...
 
 - 隐私解锁：HMAC-SHA256 签名 + userId 绑定 + 8 小时有效期 + `timingSafeEqual`
 - 失败锁定：5 次 / 60 秒，计数存 `throttle` 表（多实例一致）
-- 短信：同一手机号 60 秒冷却（生产）、Better Auth 按 IP 限流（生产）、发送失败上抛
+- 短信：同一手机号 60 秒冷却（生产，键为 HMAC 摘要，不落明文号码）
+- IP 限流：Better Auth 1.7 的数据库存储（`rate_limit` 表），多实例共享；覆盖 send-otp 与 verify；存储不可用时拒绝请求而不是静默放行
+- IP 信任边界：默认读 `x-real-ip` / `x-forwarded-for`；多级代理用 `TRUSTED_PROXY_CIDRS` 配置，否则无法解析时进入共享桶
+- 日志脱敏：错误摘要会去掉连接串、手机号、验证码与 SQL 参数
 - 数据隔离：账本成员校验 + 所有查询强制 `ledgerId` + 单资源操作禁止裸 `findUnique`
 - 导出需先解锁隐私模式
 - 统一错误信封，不把堆栈 / SQL 细节透给客户端
@@ -328,13 +342,15 @@ TENCENT_SMS_TEMPLATE_ID=...
 ## 测试
 
 ```bash
-npm test          # 62 项：日期 / 遮罩 / 安全配置 / 结清 / 预备 / 邀请 / 软删除
-npm run build && npm run test:e2e   # 11 项浏览器流程
-npm run smoke     # 70 项接口契约（需先启动服务并 seed）
+npm test              # 103 项：环境守卫 / 结清 / 预备并发 / 邀请 / 限流 / 日志脱敏 / schema 一致性
+npm run build         # 严格生产构建
+npm run check:prod-guard  # 反向校验：生产构建拒绝 APP_ENV=test
+npm run test:e2e      # 11 项浏览器流程（内部会先 npm run build:test）
+npm run smoke         # 70 项接口契约（需先启动测试构建并 seed）
 ```
 
 - 服务层测试用 **PGlite**（WASM Postgres）起真实 SQL：迁移脚本全量执行，事务、唯一索引、条件更新都是真的；不需要 Docker。
-- E2E 用独立的 `.localdb-e2e` 与 3100 端口，跑生产构建、APP_ENV=test，不依赖真实短信。
+- E2E 用独立的 `.localdb-e2e` 与 3100 端口，跑**测试构建**（`NEXT_PUBLIC_E2E_BUILD=1`）+ `APP_ENV=test`，不依赖真实短信；普通生产构建在 `APP_ENV=test` 下会拒绝启动。
 - 详细覆盖矩阵、已知限制（PGlite 单会话）见 [docs/06-testing.md](docs/06-testing.md)。
 
 ---

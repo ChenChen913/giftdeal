@@ -206,19 +206,13 @@ export async function updatePlan(
   planId: string,
   input: UpdatePlanInput,
 ): Promise<PlanDto> {
-  const existing = await db
-    .select({ id: giftPlan.id, status: giftPlan.status })
-    .from(giftPlan)
-    .where(
-      and(eq(giftPlan.id, planId), eq(giftPlan.ledgerId, ctx.ledgerId), isNull(giftPlan.deletedAt)),
-    )
-    .limit(1);
-  if (existing.length === 0) throw new AppError("NOT_FOUND");
-  if (existing[0].status === "DONE") {
-    throw new AppError("CONFLICT", undefined, "已完成的预备不能再修改");
-  }
-
-  await db
+  /**
+   * 单条条件 UPDATE 完成「校验 + 修改」，不再先查状态再改：
+   * - status = 'PLANNED' 保证不会修改已经完成的预备；
+   * - ledgerId / deletedAt 保证不会跨账本、不会改已删除数据；
+   * - 并发「完成 + 修改」时，只有先拿到行锁的一方成功，另一方 0 行受影响。
+   */
+  const updated = await db
     .update(giftPlan)
     .set({
       ...(input.direction !== undefined ? { direction: input.direction } : {}),
@@ -234,9 +228,29 @@ export async function updatePlan(
       and(
         eq(giftPlan.id, planId),
         eq(giftPlan.ledgerId, ctx.ledgerId),
+        eq(giftPlan.status, "PLANNED"),
         isNull(giftPlan.deletedAt),
       ),
-    );
+    )
+    .returning({ id: giftPlan.id });
+
+  if (updated.length === 0) {
+    // 没更新到：区分「不存在 / 已删除」「已跨账本」「已完成」，保持原有错误码语义
+    const rows = await db
+      .select({ status: giftPlan.status })
+      .from(giftPlan)
+      .where(
+        and(
+          eq(giftPlan.id, planId),
+          eq(giftPlan.ledgerId, ctx.ledgerId),
+          isNull(giftPlan.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!rows[0]) throw new AppError("NOT_FOUND");
+    throw new AppError("CONFLICT", undefined, "已完成的预备不能再修改");
+  }
 
   const row = await db.query.giftPlan.findFirst({
     where: eq(giftPlan.id, planId),
@@ -248,16 +262,8 @@ export async function updatePlan(
 
 /** 软删除：预备取消或记错了 */
 export async function deletePlan(ctx: LedgerContext, planId: string) {
-  const existing = await db
-    .select({ id: giftPlan.id })
-    .from(giftPlan)
-    .where(
-      and(eq(giftPlan.id, planId), eq(giftPlan.ledgerId, ctx.ledgerId), isNull(giftPlan.deletedAt)),
-    )
-    .limit(1);
-  if (existing.length === 0) throw new AppError("NOT_FOUND");
-
-  await db
+  // 条件软删：并发重复删除只有一次生效，另一次按 NOT_FOUND 处理
+  const removed = await db
     .update(giftPlan)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
     .where(
@@ -266,7 +272,9 @@ export async function deletePlan(ctx: LedgerContext, planId: string) {
         eq(giftPlan.ledgerId, ctx.ledgerId),
         isNull(giftPlan.deletedAt),
       ),
-    );
+    )
+    .returning({ id: giftPlan.id });
+  if (removed.length === 0) throw new AppError("NOT_FOUND");
 
   return { deleted: true };
 }

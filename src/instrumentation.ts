@@ -15,11 +15,22 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NEXT_PHASE === "phase-production-build") return;
 
-  const { assertProductionConfig, appEnv } = await import("./server/env");
+  const { assertProductionConfig, appEnv, collectConfigWarnings, isTestBuildRuntime } =
+    await import("./server/env");
+
+  if (isTestBuildRuntime) {
+    console.warn(
+      "[boot] 当前是测试构建（NEXT_PUBLIC_E2E_BUILD=1），仅用于 CI / E2E，禁止部署到生产环境",
+    );
+  }
+
   if (appEnv !== "production") return;
 
   try {
     assertProductionConfig();
+    for (const warning of collectConfigWarnings()) {
+      console.warn(`[boot] ${warning}`);
+    }
     console.log("[boot] 生产环境配置检查通过");
   } catch (error) {
     console.error("\n" + (error instanceof Error ? error.message : String(error)) + "\n");

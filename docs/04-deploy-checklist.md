@@ -30,7 +30,7 @@
 | `DIRECT_URL` | Neon direct 串 | `prisma migrate status` 能连上 |
 | `BETTER_AUTH_SECRET` | ≥32 字符，生产专用 | 登录后会话能保持；隐私解锁 Cookie 可签发 |
 | `BETTER_AUTH_URL` | `https://<域名>` | 登录不报 Invalid origin |
-| `NEXT_PUBLIC_APP_URL` | 邀请链接域名，通常同上 | 生成的邀请链接域名正确 |
+| `NEXT_PUBLIC_APP_URL` | 邀请链接域名，通常同上。**构建时内联**，必须在构建环境配置 | 生成的邀请链接域名正确 |
 | `PRIVACY_PASSWORD` | ≥8 位，非重复 / 连续 / 常见弱口令 | 顶栏隐私模式能解锁；缺配置会 503 |
 | `SMS_PROVIDER` | `tencent` | 点「获取验证码」能收到真实短信 |
 | `TENCENT_SMS_SECRET_ID` | 访问密钥 | — |
@@ -48,12 +48,15 @@
 | `ALLOW_ADMIN_LOGIN` | 否则 `admin` 通道整体开放 |
 | `ALLOW_LAN_ACCESS` | 只用于本地手机联调 |
 | `NEXT_PUBLIC_SHOW_DEMO_HINT` | 生产构建默认隐藏；不要强制打开 |
+| `NEXT_PUBLIC_E2E_BUILD` | 测试构建标记。**构建生产产物时绝不能设置**，否则产物只能以 test 运行 |
 
 > 代码里有启动自检：以上任意一个为 `true`，或者 `SMS_PROVIDER=mock`、`PRIVACY_PASSWORD` 缺失/过弱，服务会**拒绝启动**并打印问题列表。看到启动失败先按提示补配置，不要临时关掉校验。
 
 ### 2.3 建议
 
 - [ ] 在 Neon 控制台开启 **IP Allow**（如果使用固定出口 IP）或依赖 SSL
+- [ ] 如果前面还有一层自建代理/网关，配置 `TRUSTED_PROXY_CIDRS`（代理 IP/CIDR，逗号分隔）；否则多级 `X-Forwarded-For` 无法解析，IP 限流会退化为共享桶
+- [ ] 确认 `TRUSTED_IP_HEADERS` 与实际代理一致（默认 `x-real-ip,x-forwarded-for`）
 - [ ] Vercel 环境变量按 Production / Preview / Development 分环境配置，Preview 不要连生产库
 - [ ] `NEXT_PUBLIC_*` 会被打进前端产物，确认其中没有密钥
 
@@ -75,6 +78,8 @@ DIRECT_URL="<Neon direct 串>" npx prisma migrate deploy
 ```bash
 DIRECT_URL="<Neon direct 串>" npx prisma migrate status
 ```
+
+本次上线包含的迁移：`throttle`（业务限流）、`updated_at_defaults`、`rate_limit`（Better Auth 数据库限流）。都是新增表/默认值，不改历史数据。
 
 - [ ] **不要在生产库执行 `prisma db seed`**。脚本在 `NODE_ENV=production` 时默认拒绝，除非显式 `ALLOW_SEED=true`。
 
@@ -110,6 +115,7 @@ DIRECT_URL="<Neon direct 串>" npx prisma migrate status
 - [ ] 首页金额默认 `¥*,***`，输入隐私密码后显示真实值
 - [ ] 隐私模式未解锁时点「导出」→ 提示先解锁
 - [ ] 连续输错 5 次隐私密码 → 锁定 1 分钟
+- [ ] 同一 IP 连续点 6 次「获取验证码」→ 第 6 次返回 429（多实例部署时换一个实例重试仍应 429）
 - [ ] `curl -I https://<域名>/login` 能看到 `content-security-policy`、`x-frame-options`、`referrer-policy`
 - [ ] 生产环境用 `123456` 登录失败（固定码已禁用）
 - [ ] 生产环境访问 `/api/v1/auth/admin-login` 返回 403

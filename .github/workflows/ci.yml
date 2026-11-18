@@ -45,10 +45,16 @@ jobs:
       - name: 单元测试 + 服务层测试（PGlite）
         run: npm test
 
-      - name: 生产构建
+      - name: 生产构建（严格，无测试标记）
         run: npm run build
 
-      - name: 接口冒烟（起 PGlite + 生产服务）
+      - name: 反向校验：生产构建必须拒绝 APP_ENV=test
+        run: npm run check:prod-guard
+
+      - name: 测试构建（冒烟 / E2E 专用，带测试标记）
+        run: npm run build:test
+
+      - name: 接口冒烟（起 PGlite + 测试构建服务）
         run: |
           set -e
 
@@ -60,6 +66,7 @@ jobs:
           done
 
           npx prisma migrate deploy
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
           npx prisma db seed
 
           npm run start &
@@ -104,10 +111,7 @@ jobs:
       - name: 安装 Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: 生产构建
-        run: npm run build
-
-      - name: Playwright E2E（独立 PGlite + 独立端口）
+      - name: Playwright E2E（测试构建 + 独立 PGlite + 独立端口）
         run: npm run test:e2e
 
       - name: 失败时上传报告与截图

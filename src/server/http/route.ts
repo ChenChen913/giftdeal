@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 import { AppError, isUniqueConstraintError } from "./errors";
 import { fail, ok } from "./envelope";
+import { logServerError } from "./log";
 
 type HandleInit = { status?: number };
 
@@ -39,7 +40,7 @@ export function toErrorResponse(error: unknown, req: Request): NextResponse {
   }
 
   const { pathname } = new URL(req.url);
-  console.error(`[api] ${req.method} ${pathname} 未处理异常`, error);
+  logServerError(`api ${req.method} ${pathname}`, error);
   return fail("INTERNAL_ERROR", "服务器开小差了");
 }
 

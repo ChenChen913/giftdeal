@@ -4,6 +4,7 @@ import { auth } from "@/server/auth";
 import { devOnlyFlag, isProduction } from "@/server/env";
 import { AppError } from "@/server/http/errors";
 import { fail } from "@/server/http/envelope";
+import { logServerError } from "@/server/http/log";
 import { readJson } from "@/server/http/route";
 
 const ADMIN_EMAIL = "admin@giftdeal.local";
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
     if (error instanceof AppError) {
       return fail(error.code, error.message, error.details);
     }
-    console.error("[auth] admin-login 失败", error);
+    logServerError("auth/admin-login", error);
     return fail("INTERNAL_ERROR", "登录失败，请稍后重试");
   }
 }

@@ -167,6 +167,19 @@ User ──< Membership >── Ledger ──< Contact ──< Record
 
 放在数据库而不是进程内存，是为了多实例部署时计数一致；写入频率极低，不与业务读写争抢。
 
+### 2.9 RateLimit（Better Auth 限流）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | Text (PK) | Better Auth 生成 |
+| key | Text UNIQUE | `<ip>\|<path>`，例如 `203.0.113.10\|/phone-number/send-otp` |
+| count | Int | 当前窗口内请求数 |
+| lastRequest | BigInt | 最近一次请求的毫秒时间戳 |
+
+由 `rateLimit.storage = "database"` 使用。Better Auth 通过「乐观锁自增 + 重试」保证并发下的原子性；窗口过期后原地重置。表由 Better Auth 自己按 `lastRequest` 清理过期行。
+
+> 与 `throttle` 的分工：`rate_limit` 是认证入口的 IP 限流（框架管理）；`throttle` 是业务限流（隐私密码锁定、手机号短信冷却，键为 HMAC 摘要）。两者都落库，多实例一致。
+
 ---
 
 ## 3. 删除策略（已定：全部软删除）

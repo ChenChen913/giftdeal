@@ -88,8 +88,15 @@ function readCookie(req: Request): string | undefined {
   for (const part of raw.split(";")) {
     const index = part.indexOf("=");
     if (index < 0) continue;
-    if (part.slice(0, index).trim() === PRIVACY_COOKIE) {
-      return decodeURIComponent(part.slice(index + 1).trim());
+    if (part.slice(0, index).trim() !== PRIVACY_COOKIE) continue;
+
+    const value = part.slice(index + 1).trim();
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      // 非法百分号编码（如 "%E0%A4%A"）不能让接口 500；
+      // 解析失败一律按「未解锁」处理，绝不因为异常输入放行。
+      return undefined;
     }
   }
   return undefined;
@@ -136,7 +143,8 @@ export async function verifyPrivacyPassword(userId: string, password: string) {
   const key = throttleKeys.privacyFail(userId);
   const state = await readThrottle(key, PRIVACY_MAX_ATTEMPTS, PRIVACY_LOCK_SECONDS);
 
-  if (!state.allowed) {
+  // 锁定判断用「已失败次数」而不是 allowed：第 5 次失败后立即锁定
+  if (state.count >= PRIVACY_MAX_ATTEMPTS) {
     throw new AppError(
       "PRIVACY_LOCKED",
       undefined,
@@ -150,7 +158,7 @@ export async function verifyPrivacyPassword(userId: string, password: string) {
 
   if (!ok) {
     const next = await consumeThrottle(key, PRIVACY_MAX_ATTEMPTS, PRIVACY_LOCK_SECONDS);
-    if (!next.allowed) {
+    if (next.count >= PRIVACY_MAX_ATTEMPTS) {
       throw new AppError(
         "PRIVACY_LOCKED",
         undefined,

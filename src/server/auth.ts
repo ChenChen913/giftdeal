@@ -10,8 +10,14 @@ import { LIMITS } from "@/lib/constants";
 import { bootstrapUser } from "./bootstrap";
 import { db } from "@/server/db-drizzle";
 import { fixedCodeForEnvironment, getOtpProvider, maskPhoneForLog } from "./otp";
-import { devOnlyFlag, isProduction } from "./env";
-import { account, session, user, verification } from "./schema";
+import {
+  devOnlyFlag,
+  ipAddressHeaders,
+  rateLimitEnabled,
+  trustedProxyCidrs,
+} from "./env";
+import { logServerError } from "./http/log";
+import { account, rateLimit, session, user, verification } from "./schema";
 import { consumeThrottle, throttleKeys } from "./throttle";
 
 /**
@@ -56,7 +62,8 @@ class OtpTooFrequentError extends Error {
 
 async function sendOtpOrThrow(phone: string, code: string): Promise<void> {
   try {
-    if (isProduction) {
+    // 生产环境始终开启；测试可通过 RATE_LIMIT_ENABLED=true 打开（只会更严格）
+    if (rateLimitEnabled()) {
       const gate = await consumeThrottle(
         throttleKeys.otpSend(phone),
         1,
@@ -67,9 +74,8 @@ async function sendOtpOrThrow(phone: string, code: string): Promise<void> {
 
     await getOtpProvider().send(phone, code);
   } catch (error) {
-    // 日志只保留打码后的号码，绝不打印验证码
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error(`[OTP] 发送失败 ${maskPhoneForLog(phone)}: ${detail}`);
+    // 日志只保留打码后的号码，绝不打印验证码；错误摘要统一走脱敏
+    logServerError(`auth/otp ${maskPhoneForLog(phone)}`, error);
 
     if (error instanceof OtpTooFrequentError) {
       throw new APIError("TOO_MANY_REQUESTS", { message: error.message });
@@ -91,7 +97,7 @@ const fixedCode = fixedCodeForEnvironment();
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
-    schema: { user, session, account, verification },
+    schema: { user, session, account, verification, rateLimit },
   }),
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
@@ -107,20 +113,24 @@ export const auth = betterAuth({
     ...lanOrigins(),
   ],
   /**
-   * 限流只生产开启：CI / 冒烟 / E2E 需要连续登录，不希望被 5 次/分钟卡住。
-   * 生产下短信发送另有「同一手机号 60 秒冷却」（数据库计数，多实例共享）。
+   * 限流：
+   * - 生产环境始终开启；测试/开发默认关闭（CI/E2E 需要连续登录），
+   *   但可用 RATE_LIMIT_ENABLED=true 打开做真实数据库限流测试。
+   * - 存储放数据库（rate_limit 表），多实例共享同一份计数；单条 UPSERT/乐观锁保证原子性。
+   * - 覆盖发送验证码与验证验证码两个入口。
+   * - 手机号级 60 秒冷却仍是独立的一层，不依赖 IP，无法通过伪造 IP 绕过。
    */
-  rateLimit: isProduction
-    ? {
-        enabled: true,
-        window: 60,
-        max: 60,
-        customRules: {
-          "/phone-number/send-otp": { window: 60, max: 5 },
-          "/phone-number/verify": { window: 60, max: 10 },
-        },
-      }
-    : { enabled: false },
+  rateLimit: {
+    enabled: rateLimitEnabled(),
+    storage: "database",
+    modelName: "rateLimit",
+    window: 60,
+    max: 60,
+    customRules: {
+      "/phone-number/send-otp": { window: 60, max: 5 },
+      "/phone-number/verify": { window: 60, max: 10 },
+    },
+  },
   /**
    * 内部账号（admin）走 credential 通道，但前端不出现密码框：
    * 由 /api/v1/auth/admin-login 在服务端换取会话，只接受字面量 "admin"。
@@ -159,7 +169,7 @@ export const auth = betterAuth({
             await bootstrapUser(user.id);
           } catch (error) {
             // 建默认账本失败不应该阻断注册，/api/v1/me 会再兜一次
-            console.error("[auth] 初始化默认账本失败", error);
+            logServerError("auth/bootstrap", error);
           }
         },
       },
@@ -167,6 +177,17 @@ export const auth = betterAuth({
   },
   advanced: {
     database: { joins: true },
+    /**
+     * IP 信任边界：
+     * - 默认先读 x-real-ip（Vercel 等平台会覆盖），再读 x-forwarded-for；
+     * - 多级 XFF 只有在 TRUSTED_PROXY_CIDRS 配置了可信代理时才解析，
+     *   否则 Better Auth 会退化为「no-trusted-ip」共享桶，避免伪造单个 IP 横向绕过；
+     * - 手机号级冷却与全局发送上限不依赖 IP。
+     */
+    ipAddress: {
+      ipAddressHeaders: ipAddressHeaders(),
+      ...(trustedProxyCidrs().length > 0 ? { trustedProxies: trustedProxyCidrs() } : {}),
+    },
   },
 });
 

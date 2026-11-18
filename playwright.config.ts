@@ -6,7 +6,8 @@ const DB_PORT = Number(process.env.E2E_DB_PORT ?? 55440);
 /**
  * E2E 配置。
  *
- * 前置：先 `npm run build`（Playwright 的 webServer 只负责起库和服务，不负责构建）。
+ * 前置：先 `npm run build:test`（`npm run test:e2e` 已包含构建）。
+ * 必须使用测试构建：严格生产构建会拒绝以 APP_ENV=test 启动。
  * 数据库是独立的 `.localdb-e2e`，每个测试用新手机号注册，互不干扰。
  */
 export default defineConfig({

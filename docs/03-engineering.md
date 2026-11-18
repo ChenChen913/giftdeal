@@ -128,7 +128,15 @@ Better Auth `phoneNumber` 插件：
 - 腾讯云实现零依赖：`node:crypto` 手写 TC3-HMAC-SHA256；
 - 日志里的手机号统一打码（`138****0001`）。
 
-### 4.3 内部账号
+### 4.3 多实例限流
+
+- Better Auth 1.7 的 `rateLimit.storage = "database"`，计数存 `rate_limit` 表，适配器用乐观锁自增，多实例共享。
+- 覆盖 `/phone-number/send-otp`（5 次 / 分钟 / IP）与 `/phone-number/verify`（10 次 / 分钟 / IP）。
+- 手机号 60 秒冷却（`throttle` 表）不依赖 IP，换 IP 也不能绕过。
+- IP 来源默认 `x-real-ip` → `x-forwarded-for`；多级代理用 `TRUSTED_PROXY_CIDRS` 配置可信代理，否则多值头会落入共享桶。
+- 限流存储异常时会抛错（HTTP 层 500），不会静默放行。
+
+### 4.4 内部账号
 
 `admin` 登录只在非生产环境生效（`devOnlyFlag("ALLOW_ADMIN_LOGIN")`）；生产环境即使误配也会被启动自检拦下。密码只从 `ADMIN_LOGIN_PASSWORD` 读取，不回退默认值。
 
@@ -139,15 +147,35 @@ Better Auth `phoneNumber` 插件：
 唯一入口：`src/server/env.ts`。
 
 ```ts
-appEnv: "development" | "test" | "production"   // 未设置时按 NODE_ENV 推断
+resolveAppEnv(input)              // 纯函数；环境判定矩阵可单测
+appEnv: "development" | "test" | "production"
 isProduction / isTest / isDevelopment
 envFlag(name) / devOnlyFlag(name, envName?)
+rateLimitEnabled(envName?)        // 生产始终 true；测试可用 RATE_LIMIT_ENABLED 打开
 privacyPassword(envName?)
 smsProviderName(envName?)
 fixedOtpCodeEnabled(envName?)
+checkUrl / isPostgresUrl / checkAuthSecret
 collectConfigProblems(envName?)   // 返回问题列表，纯函数便于测试
+collectConfigWarnings(envName?)   // 不阻止启动的提醒（如未配置可信代理）
 assertProductionConfig()          // 有问题直接抛 ProductionConfigError
 ```
+
+### 5.1 环境判定：生产不可被降级
+
+| NODE_ENV | APP_ENV | 构建标记 | 结果 |
+|---|---|---|---|
+| production | test | 无 | **拒绝启动** |
+| production | development | 无 | **拒绝启动** |
+| production | 未设置 / production | 无 | production |
+| production | test | `NEXT_PUBLIC_E2E_BUILD=1` | test（仅测试构建） |
+| test | test | 任意 | test |
+| production | 任意 | 构建阶段 | production（构建不做运行时判断） |
+
+- 测试标记由 `npm run build:test` 设置，`NEXT_PUBLIC_*` 会被 Next **内联进产物**；运行时再设置环境变量无效，因此不能成为生产后门。
+- `next build` 阶段即使 `APP_ENV=test` 也按 production 生成产物；缺少运行时密钥不会导致构建失败（数据库连接串在构建期使用不会连接的占位串）。
+- `npm run check:prod-guard` 会用严格生产构建启动一次 `APP_ENV=test`，断言被拒绝。
+- `NEXT_PUBLIC_*`（如 `NEXT_PUBLIC_APP_URL`）会被 Next 在构建时内联，运行时覆盖无效；生产构建必须在构建环境里配好。
 
 生产启动时 `src/instrumentation.ts` 调用 `assertProductionConfig()`，检查：
 
@@ -208,6 +236,7 @@ npm run db:migrate            # 本地开发（会生成新迁移）
 | `20261114130000_contact_groups` | 分组 key 归一化 |
 | `20261118093000_throttle` | 限流计数表 |
 | `20261118094500_updated_at_defaults` | 给 `updated_at` 补数据库默认值 |
+| `20261118113000_rate_limit` | Better Auth 数据库限流表 |
 
 **新增迁移时必须同时改两处 schema**：`prisma/schema.prisma`（DDL 真相）与 `src/server/schema.ts`（运行时查询）。两边不一致会导致「迁移成功但运行时查询报列不存在」。
 
