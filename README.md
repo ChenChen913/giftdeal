@@ -159,7 +159,9 @@ npm run db:seed               # 演示数据
 | 内部账号 | 手机号框填 `admin` | `ALLOW_ADMIN_LOGIN=true`（仅非生产） |
 
 > 手机访问：确保手机与电脑同一 Wi-Fi，用电脑局域网 IP 打开（如 `http://192.168.0.101:3000`）。
-> 需要 `.env` 里 `ALLOW_LAN_ACCESS=true`，服务会自动把内网 IP 加进认证白名单。
+> `npm run dev:local` 启动时会打印全部局域网地址，选与手机同网段的那个；Next 自己打印的 `Network:` 可能选中 VMware 虚拟网卡，不一定对。
+> 需要 `.env` 里 `ALLOW_LAN_ACCESS=true`：认证白名单与 Next dev 的跨源资源白名单会自动包含本机内网 IP。
+> Next 16 默认拦截跨源 dev 资源（`/_next/*` 的 JS chunk、HMR），未放行时页面会一直转圈、但 HTML 和业务接口都是 200。`next.config.ts` 已在 dev 模式自动放行本机内网地址，生产构建不带此配置；额外来源可用 `NEXT_ALLOWED_DEV_ORIGINS`（逗号分隔的 hostname，不带协议/端口）补充。
 
 PGlite 数据在 `.localdb/`，重启不丢；删掉目录即可清空。
 

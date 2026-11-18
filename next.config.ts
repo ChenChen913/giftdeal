@@ -1,8 +1,42 @@
+import os from "node:os";
 import path from "node:path";
 
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
+
+/**
+ * Next 16 默认拦截跨源访问 dev 资源（/_next/* 的 JS chunk、HMR WebSocket），
+ * 只放行 localhost。手机/其它设备用局域网 IP 打开时，这些请求会被 403，
+ * 页面因为拿不到脚本一直停在 loading 转圈（HTML 与业务接口其实都是 200）。
+ *
+ * 这里在 dev 模式下把本机所有非回环 IPv4 加进白名单；next build / cf:build
+ * 的 NODE_ENV=production，不会携带该配置，生产安全边界不受影响。
+ * 额外来源（自定义域名、隧道）可用 NEXT_ALLOWED_DEV_ORIGINS 逗号分隔补充。
+ *
+ * 注意：Next 匹配的是纯 hostname，不能带协议或端口。
+ */
+function devAllowedOrigins(): string[] {
+  const hosts = new Set<string>();
+  try {
+    for (const list of Object.values(os.networkInterfaces())) {
+      for (const net of list ?? []) {
+        if (net.family === "IPv4" && !net.internal && !net.address.startsWith("169.254.")) {
+          hosts.add(net.address);
+        }
+      }
+    }
+  } catch {
+    // 运行时不允许枚举网卡时，退回到显式配置
+  }
+  for (const host of (process.env.NEXT_ALLOWED_DEV_ORIGINS ?? "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean)) {
+    hosts.add(host);
+  }
+  return [...hosts];
+}
 
 /**
  * 内容安全策略。
@@ -62,6 +96,9 @@ const nextConfig: NextConfig = {
    * 分开之后两者互不干扰。
    */
   distDir: process.env.NEXT_DIST_DIR ?? (isDev ? ".next-dev" : ".next"),
+
+  // 手机通过局域网 IP 访问 dev 时放行 /_next/* 资源，见 devAllowedOrigins()
+  ...(isDev ? { allowedDevOrigins: devAllowedOrigins() } : {}),
 
   /**
    * Next 16 默认用 Turbopack。只要配置里出现 `webpack` 而没有 `turbopack`，

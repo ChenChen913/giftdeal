@@ -3,11 +3,23 @@
  *   npm run dev:local
  */
 import { spawn } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const children = [];
+
+// Next 自己打印的 "Network:" 可能选中 VMware 等虚拟网卡地址，容易误导。
+// 这里列出全部非回环 IPv4，让手机访问时挑与手机同一 Wi-Fi 的那个。
+const port = process.env.PORT ?? "3000";
+const lanUrls = Object.values(os.networkInterfaces())
+  .flatMap((list) => list ?? [])
+  .filter((net) => net.family === "IPv4" && !net.internal && !net.address.startsWith("169.254."))
+  .map((net) => `http://${net.address}:${port}`);
+console.log(
+  `[dev] 本机 http://localhost:${port}；局域网地址（选与手机同一 Wi-Fi 的那个）：${lanUrls.join("  ") || "无"}`,
+);
 
 function run(label, command, args, env) {
   const child = spawn(command, args, {
