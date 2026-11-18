@@ -50,3 +50,26 @@ test("新用户 bootstrap：账本先于外键更新创建，且幂等不重复�
   assert.equal((await db.select().from(ledger)).length, 1);
   assert.equal((await db.select().from(membership)).length, 1);
 });
+
+test("test 环境即使存在 seed 演示账本，新用户仍保持独立空账本", async () => {
+  // 保护 E2E / smoke 的数据隔离：演示账本同步只能在 development 生效，
+  // 否则「每个新会话独立空账本」的前提被破坏，成套用例会失败。
+  await db.insert(ledger).values({ id: "led_zhang", name: "张家礼金账" });
+  const userId = await createUser(db);
+
+  const ledgerId = await bootstrapUser(userId);
+  assert.notEqual(ledgerId, "led_zhang", "测试环境不能共享演示账本");
+
+  const members = await db
+    .select({ ledgerId: membership.ledgerId, role: membership.role })
+    .from(membership)
+    .where(eq(membership.userId, userId));
+  assert.equal(members.length, 1);
+  assert.equal(members[0].role, "OWNER");
+  assert.equal(members[0].ledgerId, ledgerId);
+  assert.equal(
+    (await db.select().from(membership).where(eq(membership.ledgerId, "led_zhang"))).length,
+    0,
+    "演示账本不应被塞入新成员",
+  );
+});

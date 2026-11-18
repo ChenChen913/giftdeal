@@ -13,6 +13,7 @@ import {
 
 import { api, ApiError, UNAUTHORIZED_EVENT } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
+import { DEFAULT_LEDGER_NAME } from "@/lib/constants";
 import { formatAmount } from "@/lib/format";
 import { maskFreeText, maskMoney, maskPerson, maskPhone } from "@/lib/mask";
 import type { LedgerSummary, MeResponse, MeUser, Overview } from "@/lib/types";
@@ -114,9 +115,20 @@ function LedgerProvider({ children }: { children: ReactNode }) {
     const storedValid = stored && me.ledgers.some((item) => item.id === stored);
     const fallback = me.ledgers[0]?.id ?? me.defaultLedgerId;
 
+    // 本地演示同步：development 下若用户从未主动选过账本、默认仍是自动新建的空账本，
+    // 而他同时也是 seed 演示账本的成员，就优先展示有数据的那本 —— 手机 / 电脑打开即一致。
+    // 用户一旦点过账本切换器，localStorage 会记录选择，此后完全尊重用户，不再自动改。
+    // NODE_ENV 在构建时内联：测试构建与生产构建都是 production，此分支不会进入产物行为。
+    let preferred = fallback;
+    if (process.env.NODE_ENV === "development" && !storedValid && me.ledgers.length > 1) {
+      const autoLedger = me.ledgers.find((item) => item.id === me.defaultLedgerId);
+      const shared = me.ledgers.find((item) => item.id !== me.defaultLedgerId);
+      if (autoLedger?.name === DEFAULT_LEDGER_NAME && shared) preferred = shared.id;
+    }
+
     setLedgerId((prev) => {
       if (prev && me.ledgers.some((item) => item.id === prev)) return prev;
-      return storedValid ? stored : fallback;
+      return storedValid ? stored : preferred;
     });
   }, []);
 

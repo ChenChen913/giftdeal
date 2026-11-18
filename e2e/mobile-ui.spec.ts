@@ -50,3 +50,39 @@ test("移动端：亲友分类默认收起，展开后仍可筛选并再次收�
   // 收起后仍能看到已选条件，不会「筛完就不知道筛了什么」
   await expect(toggle).toContainText("父系亲戚");
 });
+
+test("移动端：顶栏可切换账本，补齐桌面侧栏的账本切换能力", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+
+  const trigger = page.locator(".mobile-ledger-trigger");
+  const menu = page.locator(".mobile-ledger-menu");
+  await expect(trigger).toBeVisible();
+  await expect(trigger).toContainText("我的礼金账本");
+  await expect(menu).toBeHidden();
+
+  await trigger.click();
+  await expect(menu).toBeVisible();
+  await expect(menu).toContainText("我的礼金账本");
+  await expect(menu.getByRole("link", { name: "管理账本与成员" })).toBeVisible();
+  // 选中当前账本后菜单收起，切换动作可完成
+  await menu.getByRole("button", { name: /我的礼金账本/ }).click();
+  await expect(menu).toBeHidden();
+});
+
+test("移动端与桌面端：同一账号的人生大事统计一致", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  await page.goto("/events");
+  await expect(page.getByRole("heading", { name: "人生大事" })).toBeVisible();
+  const mobileStats = await page.locator(".stat-value").allInnerTexts();
+  expect(mobileStats.length).toBeGreaterThan(0);
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "人生大事" })).toBeVisible();
+  const desktopStats = await page.locator(".stat-value").allInnerTexts();
+
+  // 同一个页面、同一个数据源：视口不同不应导致一边有数据一边为空
+  expect(desktopStats).toEqual(mobileStats);
+});

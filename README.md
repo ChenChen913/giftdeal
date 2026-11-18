@@ -56,9 +56,9 @@
 
 | 套件 | 数量 | 命令 |
 |---|---|---|
-| 单元 + 服务层测试 | **112** | `npm test` |
+| 单元 + 服务层测试 | **113** | `npm test` |
 | 接口冒烟 | **70** | `npm run smoke` |
-| Playwright E2E | **13** | `npm run test:e2e` |
+| Playwright E2E | **15** | `npm run test:e2e` |
 
 > 数字以当前 `main` 的实际输出为准；CI 会跑同样的三套。
 
@@ -162,6 +162,9 @@ npm run db:seed               # 演示数据
 > `npm run dev:local` 启动时会打印全部局域网地址，选与手机同网段的那个；Next 自己打印的 `Network:` 可能选中 VMware 虚拟网卡，不一定对。
 > 需要 `.env` 里 `ALLOW_LAN_ACCESS=true`：认证白名单与 Next dev 的跨源资源白名单会自动包含本机内网 IP。
 > Next 16 默认拦截跨源 dev 资源（`/_next/*` 的 JS chunk、HMR），未放行时页面会一直转圈、但 HTML 和业务接口都是 200。`next.config.ts` 已在 dev 模式自动放行本机内网地址，生产构建不带此配置；额外来源可用 `NEXT_ALLOWED_DEV_ORIGINS`（逗号分隔的 hostname，不带协议/端口）补充。
+
+> **手机端与电脑端的数据同步**：本地演示环境（`development`）里，任意手机号首次登录都会直接加入 seed 的演示账本「张家礼金账」，两个设备因此看到同一份数据（6 件人生大事、47 笔礼金、14 位亲友），不会出现「电脑端满、手机端空」。手机端点顶栏账本名即可切换账本，与桌面侧栏的账本切换器能力一致；已加入共享账本的空账本账号也会自动落到有数据的那本。
+> 此行为**仅在 development 生效**：`APP_ENV=test`（E2E / smoke）仍保持每个新会话独立空账本，生产环境严格按账号隔离，绝不共享演示数据。
 
 PGlite 数据在 `.localdb/`，重启不丢；删掉目录即可清空。
 
@@ -349,11 +352,11 @@ TRUSTED_IP_HEADERS=x-real-ip          # 平台会覆盖该头时（Cloudflare �
 ## 测试
 
 ```bash
-npm test              # 112 项：环境守卫 / 结清 / 预备并发 / 邀请 / 限流 / 日志脱敏 / schema 一致性 / 默认账本初始化
+npm test              # 113 项：环境守卫 / 结清 / 预备并发 / 邀请 / 限流 / 日志脱敏 / schema 一致性 / 默认账本初始化与环境隔离
 npm run build         # 严格生产构建（需 NEXT_PUBLIC_APP_URL=https://<生产域名>）
 npm run check:prod-guard                                              # 生产矩阵 A/B/B2/C
 npm run build:test && node scripts/check-prod-guard.mjs test-build    # 测试构建矩阵 D/E
-npm run test:e2e      # 13 项浏览器流程（内部会先 npm run build:test）
+npm run test:e2e      # 15 项浏览器流程（内部会先 npm run build:test）
 npm run smoke         # 70 项接口契约（需先启动测试构建并 seed）
 npm run db:cleanup -- --dry-run   # 限流表清理预演；去掉 --dry-run 才真删
 npm run cf:build      # Cloudflare / OpenNext 产物构建

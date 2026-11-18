@@ -22,6 +22,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const switcherRef = useRef<HTMLDivElement | null>(null);
+  // 手机端侧栏被隐藏，必须有自己的账本切换器；与桌面共用同一份账本数据，但状态独立
+  const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
+  const mobileSwitcherRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!switcherOpen) return;
@@ -31,6 +34,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [switcherOpen]);
+
+  useEffect(() => {
+    if (!mobileSwitcherOpen) return;
+    const onOutside = (event: Event) => {
+      if (!mobileSwitcherRef.current?.contains(event.target as Node)) {
+        setMobileSwitcherOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onOutside);
+    document.addEventListener("touchstart", onOutside);
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      document.removeEventListener("touchstart", onOutside);
+    };
+  }, [mobileSwitcherOpen]);
 
   const pendingCount = overview?.pendingReturnCount ?? 0;
   const planCount = overview?.planCount ?? 0;
@@ -165,13 +183,51 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="main">
         <div className="mobile-topbar">
-          <Link href="/" className="mobile-brand">
-            <span className="brand-mark">礼</span>
-            <span style={{ minWidth: 0 }}>
-              <div className="mobile-brand-name">礼尚·人情账本</div>
-              <div className="mobile-brand-sub">{currentLedger?.name ?? "加载中"}</div>
-            </span>
-          </Link>
+          <div className="mobile-brand" ref={mobileSwitcherRef}>
+            <button
+              type="button"
+              className="mobile-ledger-trigger"
+              onClick={() => setMobileSwitcherOpen((prev) => !prev)}
+              aria-expanded={mobileSwitcherOpen}
+            >
+              <span className="brand-mark">礼</span>
+              <span className="mobile-ledger-text">
+                <span className="mobile-brand-name">礼尚·人情账本</span>
+                <span className="mobile-brand-sub">{currentLedger?.name ?? "加载中"}</span>
+              </span>
+              <Icon name="chevronDown" size={14} />
+            </button>
+
+            {mobileSwitcherOpen ? (
+              <div className="card mobile-ledger-menu">
+                <div className="mobile-ledger-menu-title">切换账本</div>
+                {ledgers.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`mobile-ledger-item ${item.id === ledgerId ? "active" : ""}`}
+                    onClick={() => {
+                      switchLedger(item.id);
+                      setMobileSwitcherOpen(false);
+                    }}
+                  >
+                    <Icon name={item.id === ledgerId ? "check" : "wallet"} size={16} />
+                    <span className="grow">{item.name}</span>
+                    <span className="caption">{item.memberCount} 人</span>
+                  </button>
+                ))}
+                <div className="divider" style={{ margin: "6px 0" }} />
+                <Link
+                  href="/ledger"
+                  className="mobile-ledger-item"
+                  onClick={() => setMobileSwitcherOpen(false)}
+                >
+                  <Icon name="edit" size={16} />
+                  <span className="grow">管理账本与成员</span>
+                </Link>
+              </div>
+            ) : null}
+          </div>
           <PrivacyToggle compact />
           <Link href="/ledger" className="icon-btn" aria-label="家庭共享">
             <Icon name="users" size={19} />

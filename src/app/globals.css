@@ -2245,9 +2245,38 @@ ul {
   }
 
   .mobile-brand {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  /* 手机端账本切换器：桌面侧栏的 ledger-pill 在 860px 以下被隐藏，
+     顶栏必须能独立切换账本，否则空账本账号永远看不到共享账本里的数据。 */
+  .mobile-ledger-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mobile-ledger-trigger > svg {
+    flex: none;
+    color: var(--ink-4);
+  }
+
+  .mobile-ledger-text {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
     flex: 1;
   }
@@ -2257,6 +2286,7 @@ ul {
     height: 28px;
     font-size: 14px;
     border-radius: 8px;
+    flex: none;
   }
 
   .mobile-brand-name {
@@ -2269,6 +2299,52 @@ ul {
     color: var(--ink-4);
     white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-ledger-menu {
+    position: absolute;
+    top: calc(100% + 12px);
+    left: 0;
+    width: min(320px, calc(100vw - 32px));
+    z-index: 60;
+    padding: 6px;
+    box-shadow: var(--shadow-2);
+  }
+
+  .mobile-ledger-menu-title {
+    padding: 6px 10px;
+    font-size: 11px;
+    color: var(--ink-4);
+  }
+
+  .mobile-ledger-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink-2);
+    font-size: 13px;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .mobile-ledger-item.active {
+    background: var(--surface-low);
+    color: var(--primary);
+  }
+
+  .mobile-ledger-item .grow {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
     text-overflow: ellipsis;
   }
 
