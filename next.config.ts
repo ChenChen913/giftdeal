@@ -101,6 +101,14 @@ const nextConfig: NextConfig = {
   ...(isDev ? { allowedDevOrigins: devAllowedOrigins() } : {}),
 
   /**
+   * 关闭 Next 开发指示器：就是页面左侧那个黑色圆形 "N" 按钮
+   * （渲染在 <nextjs-portal> 的 shadow DOM 里，项目自身代码里搜不到）。
+   * 它只在 next dev 出现，但会挡住界面、手机端尤其明显；生产构建本来就不带。
+   * 用官方开关而不是 CSS 隐藏整个 portal，避免把编译错误浮层一起屏蔽。
+   */
+  devIndicators: false,
+
+  /**
    * Next 16 默认用 Turbopack。只要配置里出现 `webpack` 而没有 `turbopack`，
    * dev 启动就会直接报错退出（"using Turbopack, with a webpack config and no turbopack config"）。
    * 这里保留空配置；Workers 构建额外挂上数据库别名。
