@@ -63,6 +63,10 @@ const PRODUCTION_BASE: EnvPatch = {
   TENCENT_SMS_SDK_APP_ID: "1400000000",
   TENCENT_SMS_SIGN_NAME: "礼金账本",
   TENCENT_SMS_TEMPLATE_ID: "123456",
+  // 显式清空开发开关：CI 会把这些变量设在 job 级别，不清掉会污染「完整生产配置」用例
+  OTP_ALLOW_FIXED_CODE: undefined,
+  ALLOW_ADMIN_LOGIN: undefined,
+  ALLOW_LAN_ACCESS: undefined,
 };
 
 test("隐私密码强度：默认密码、重复字符、连续数字和常见弱口令都不合格", () => {
