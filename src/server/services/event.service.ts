@@ -279,7 +279,13 @@ export async function updateEvent(
       ...(input.hosted !== undefined ? { hosted: input.hosted } : {}),
       updatedAt: new Date(),
     })
-    .where(eq(lifeEvent.id, eventId))
+    .where(
+      and(
+        eq(lifeEvent.id, eventId),
+        eq(lifeEvent.ledgerId, ctx.ledgerId),
+        isNull(lifeEvent.deletedAt),
+      ),
+    )
     .returning();
 
   const summary = (await summaryMap(ctx.ledgerId, [eventId])).get(eventId) ?? emptySummary();
@@ -302,10 +308,19 @@ export async function deleteEvent(ctx: LedgerContext, eventId: string) {
   if (existing.length === 0) throw new AppError("NOT_FOUND");
 
   const detached = await db.transaction(async (tx) => {
-    await tx
+    const removed = await tx
       .update(lifeEvent)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(lifeEvent.id, eventId));
+      .where(
+        and(
+          eq(lifeEvent.id, eventId),
+          eq(lifeEvent.ledgerId, ctx.ledgerId),
+          isNull(lifeEvent.deletedAt),
+        ),
+      )
+      .returning({ id: lifeEvent.id });
+    if (removed.length === 0) throw new AppError("NOT_FOUND");
+
     return tx
       .update(record)
       .set({ eventId: null, updatedAt: new Date() })

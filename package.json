@@ -8,7 +8,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test": "node --import tsx --test \"src/**/*.test.ts\" \"tests/**/*.test.ts\"",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -21,7 +21,10 @@
     "cf:preview": "cross-env BUILD_TARGET=cloudflare opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "cf:deploy": "cross-env BUILD_TARGET=cloudflare opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
-    "postinstall": "prisma generate && patch-package"
+    "postinstall": "prisma generate && patch-package",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report",
+    "db:seed:reset": "tsx prisma/seed.ts --reset"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",
@@ -39,6 +42,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
+    "@playwright/test": "^1.65.1",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.15.0",
     "@types/react": "^19.0.0",

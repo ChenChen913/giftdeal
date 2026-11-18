@@ -28,10 +28,18 @@ next-env.d.ts
 .DS_Store
 .vercel
 
-# 本地演示数据库数据目录
+# 本地演示数据库数据目录（.localdb-e2e 是 Playwright 专用库）
 .localdb/
+.localdb-e2e/
+.localdb-test/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
 
 # 工作区本地记忆 / 会话产物，不进版本库
+.workbuddy/
 .workbuddy-ai/
 .shots/
 .next-demo/

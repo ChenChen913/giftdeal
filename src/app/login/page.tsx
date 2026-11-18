@@ -34,6 +34,9 @@ const ADMIN_ACCOUNT = "admin";
 const SHOW_DEMO_HINT =
   process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_SHOW_DEMO_HINT !== "false";
 
+/** 固定验证码提示只在开发构建出现：生产环境不会启用固定码 */
+const SHOW_FIXED_CODE_HINT = process.env.NODE_ENV !== "production";
+
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading, refresh } = useAuth();
@@ -106,7 +109,11 @@ export default function LoginPage() {
         return;
       }
       setCountdown(60);
-      setHint("验证码已发出。开发环境固定为 123456，可在服务端日志查看。");
+      setHint(
+        SHOW_FIXED_CODE_HINT
+          ? "验证码已发出。开发环境固定为 123456，可在服务端日志查看。"
+          : "验证码已发出，请注意查收短信。",
+      );
     } catch {
       setError("网络异常，请稍后重试");
     } finally {

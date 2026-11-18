@@ -141,7 +141,8 @@ export async function createRecord(ctx: LedgerContext, input: CreateRecordInput)
       where: eq(record.id, inserted[0].id),
       with: recordWith,
     });
-    return { record: recordToDto(row!), settledRecord: null };
+    if (!row) throw new AppError("INTERNAL_ERROR", undefined, "记录写入后读取失败");
+    return { record: recordToDto(row), settledRecord: null };
   }
 
   // 场景二：送出记录关联结清一条收到记录（同一事务）
@@ -223,13 +224,21 @@ export async function updateRecord(
       ...(input.eventId !== undefined ? { eventId: input.eventId } : {}),
       updatedAt: new Date(),
     })
-    .where(eq(record.id, recordId));
+    // 带上 ledgerId / deletedAt：即使并发删除了记录，也不会被这次更新「复活」
+    .where(
+      and(
+        eq(record.id, recordId),
+        eq(record.ledgerId, ctx.ledgerId),
+        isNull(record.deletedAt),
+      ),
+    );
 
   const row = await db.query.record.findFirst({
     where: eq(record.id, recordId),
     with: recordWith,
   });
-  return recordToDto(row!);
+  if (!row) throw new AppError("NOT_FOUND");
+  return recordToDto(row);
 }
 
 /** 软删除记录，并在同一事务里维护结清关系 */
@@ -241,24 +250,34 @@ export async function deleteRecord(ctx: LedgerContext, recordId: string) {
         eq(record.ledgerId, ctx.ledgerId),
         isNull(record.deletedAt),
       ),
-      with: { settledRecord: { columns: { id: true } } },
     });
     if (!target) throw new AppError("NOT_FOUND");
 
     const now = new Date();
     let affectedRecordId: string | null = null;
 
-    if (target.direction === "GIVEN" && target.settledRecord) {
-      // 删掉用于结清的送出记录 → 目标收礼回退为未结清
-      affectedRecordId = target.settledRecord.id;
-      await tx
-        .update(record)
-        .set({ settledAt: null, settledByRecordId: null, updatedAt: now })
-        .where(eq(record.id, affectedRecordId));
-    }
+    if (target.direction === "GIVEN") {
+      /**
+       * 外键存在「收到」记录上：received.settledByRecordId = given.id。
+       * 所以要按 settledByRecordId 反查，不能只看当前行的 settledRecord
+       * （送出行自己的 settledByRecordId 恒为 null，之前那版判断是死代码，
+       * 删掉用于结清的送出行不会让收礼回退成待回礼）。
+       */
+      const settledRows = await tx
+        .select({ id: record.id })
+        .from(record)
+        .where(and(eq(record.settledByRecordId, target.id), isNull(record.deletedAt)))
+        .limit(1);
 
-    if (target.direction === "RECEIVED" && target.settledByRecordId) {
-      // 删掉被结清的收礼记录 → 断开送出记录的反向引用
+      if (settledRows[0]) {
+        affectedRecordId = settledRows[0].id;
+        await tx
+          .update(record)
+          .set({ settledAt: null, settledByRecordId: null, updatedAt: now })
+          .where(eq(record.id, affectedRecordId));
+      }
+    } else if (target.settledByRecordId) {
+      // 删掉被结清的收礼记录 → 告诉调用方是哪条送出行解除了结清
       affectedRecordId = target.settledByRecordId;
     }
 
@@ -272,7 +291,13 @@ export async function deleteRecord(ctx: LedgerContext, recordId: string) {
           ? { settledAt: null, settledByRecordId: null }
           : {}),
       })
-      .where(eq(record.id, recordId));
+      .where(
+        and(
+          eq(record.id, recordId),
+          eq(record.ledgerId, ctx.ledgerId),
+          isNull(record.deletedAt),
+        ),
+      );
 
     return { deleted: true, relatedRecordId: affectedRecordId };
   });
@@ -307,7 +332,8 @@ export async function settleRecord(ctx: LedgerContext, recordId: string) {
     where: eq(record.id, recordId),
     with: recordWith,
   });
-  return recordToDto(row!);
+  if (!row) throw new AppError("NOT_FOUND");
+  return recordToDto(row);
 }
 
 export async function unsettleRecord(ctx: LedgerContext, recordId: string) {
@@ -321,14 +347,24 @@ export async function unsettleRecord(ctx: LedgerContext, recordId: string) {
   if (target.direction !== "RECEIVED") throw new AppError("RECORD_NOT_SETTLEABLE");
   if (!target.settledAt) throw new AppError("RECORD_NOT_SETTLED");
 
-  await db
+  const cleared = await db
     .update(record)
     .set({ settledAt: null, settledByRecordId: null, updatedAt: new Date() })
-    .where(eq(record.id, recordId));
+    .where(
+      and(
+        eq(record.id, recordId),
+        eq(record.ledgerId, ctx.ledgerId),
+        isNull(record.deletedAt),
+        isNotNull(record.settledAt),
+      ),
+    )
+    .returning({ id: record.id });
+  if (cleared.length === 0) throw new AppError("RECORD_NOT_SETTLED");
 
   const row = await db.query.record.findFirst({
     where: eq(record.id, recordId),
     with: recordWith,
   });
-  return recordToDto(row!);
+  if (!row) throw new AppError("NOT_FOUND");
+  return recordToDto(row);
 }

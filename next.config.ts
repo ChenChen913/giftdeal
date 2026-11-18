@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -32,6 +34,18 @@ const csp = [
  */
 const isCloudflareBuild = process.env.BUILD_TARGET === "cloudflare";
 
+/**
+ * 数据库驱动的构建期切换。
+ *
+ * Node 运行时用 node-postgres（pg），本地 PGlite / Docker / Neon TCP 都能连；
+ * Workers 没有 TCP，只能用 Neon 的 WebSocket 驱动。
+ * 这里把服务层统一引用的 `@/server/db-drizzle` 在 Workers 构建时指向 db-neon.ts，
+ * 业务代码不需要感知运行时差异。
+ */
+const dbAlias = {
+  "@/server/db-drizzle": path.resolve(process.cwd(), "src/server/db-neon.ts"),
+};
+
 const nextConfig: NextConfig = {
   /**
    * dev 与 build 用不同的产物目录。
@@ -46,17 +60,17 @@ const nextConfig: NextConfig = {
   /**
    * Next 16 默认用 Turbopack。只要配置里出现 `webpack` 而没有 `turbopack`，
    * dev 启动就会直接报错退出（"using Turbopack, with a webpack config and no turbopack config"）。
-   * 这里给一个空对象，让 Turbopack 正常跑；webpack 那段只在需要时由构建显式指定。
+   * 这里保留空配置；Workers 构建额外挂上数据库别名。
    */
-  turbopack: {},
+  turbopack: isCloudflareBuild ? { resolveAlias: dbAlias } : {},
 
-  // Prisma 7 的 driver adapter 与 pg 都是原生依赖，交给 Node 运行时直接加载
   ...(isCloudflareBuild
     ? {
         // OpenNext 的打包阶段读 .next/standalone，必须让 Next 产出这个目录
         output: "standalone" as const,
       }
-    : { serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"] }),
+    : // pg 是原生依赖，交给 Node 运行时直接加载，避免重复打包
+      { serverExternalPackages: ["pg"] }),
 
   async headers() {
     return [
@@ -76,18 +90,12 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  /**
-   * Prisma 7 的 workerd runtime 通过 `import("./x.wasm?module")` 加载查询编译器。
-   * `?module` 是 wrangler/esbuild 的约定，Next 默认的 webpack 不认这个后缀，
-   * 会报 "Module parse failed"。这里先让 webpack 把它当成 WebAssembly 模块处理，
-   * 保证构建能通过；运行时的加载方式见 docs/cloudflare-deploy.md 的说明。
-   */
   webpack: (config) => {
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
-    config.module.rules.push({
-      test: /\.wasm$/,
-      type: "webassembly/async",
-    });
+    // webpack 构建（老版本或显式 --webpack）时同样切到 Neon 驱动
+    if (isCloudflareBuild) {
+      config.resolve = config.resolve ?? {};
+      config.resolve.alias = { ...config.resolve.alias, ...dbAlias };
+    }
     return config;
   },
 };

@@ -1,25 +1,30 @@
 import * as nodeOs from "node:os";
 
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { phoneNumber } from "better-auth/plugins";
 
+import { LIMITS } from "@/lib/constants";
+
 import { bootstrapUser } from "./bootstrap";
-import { db } from "./db-drizzle";
-import { isMockOtpEnabled, mockOtpCode, otpProvider } from "./otp";
+import { db } from "@/server/db-drizzle";
+import { fixedCodeForEnvironment, getOtpProvider, maskPhoneForLog } from "./otp";
+import { devOnlyFlag, isProduction } from "./env";
 import { account, session, user, verification } from "./schema";
+import { consumeThrottle, throttleKeys } from "./throttle";
 
 /**
  * 本地演示用：手机通过局域网 IP 访问时，Origin 不是 localhost，
  * 需要把这些内网地址加进 trustedOrigins，否则登录会被判 Invalid origin。
- * 仅在 ALLOW_LAN_ACCESS=true 时启用；生产环境有真实域名，不需要开。
+ * 仅在 ALLOW_LAN_ACCESS=true 且非生产环境时启用；生产环境有真实域名，不需要开。
  *
  * 注意：Cloudflare Workers（workerd）的 node:os 不提供网卡枚举。
  * 这里用命名空间导入而非命名导入——缺失的命名导出会让模块加载直接抛错，
  * 而命名空间属性只会在访问时为 undefined，可以安全兜底。
  */
 function lanOrigins(): string[] {
-  if (process.env.ALLOW_LAN_ACCESS !== "true") return [];
+  if (!devOnlyFlag("ALLOW_LAN_ACCESS")) return [];
   if (typeof nodeOs.networkInterfaces !== "function") return [];
   const port = process.env.PORT ?? "3000";
   const origins: string[] = [];
@@ -37,6 +42,44 @@ function lanOrigins(): string[] {
   }
   return origins;
 }
+
+/** 生产环境同一手机号的短信重发冷却；开发/测试不限制，方便反复联调 */
+class OtpTooFrequentError extends Error {
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number) {
+    super(`验证码发送过于频繁，请 ${retryAfterSeconds} 秒后再试`);
+    this.name = "OtpTooFrequentError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+async function sendOtpOrThrow(phone: string, code: string): Promise<void> {
+  try {
+    if (isProduction) {
+      const gate = await consumeThrottle(
+        throttleKeys.otpSend(phone),
+        1,
+        LIMITS.otpThrottleSeconds,
+      );
+      if (!gate.allowed) throw new OtpTooFrequentError(gate.retryAfterSeconds);
+    }
+
+    await getOtpProvider().send(phone, code);
+  } catch (error) {
+    // 日志只保留打码后的号码，绝不打印验证码
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`[OTP] 发送失败 ${maskPhoneForLog(phone)}: ${detail}`);
+
+    if (error instanceof OtpTooFrequentError) {
+      throw new APIError("TOO_MANY_REQUESTS", { message: error.message });
+    }
+    // 发送失败必须让调用方失败：不能返回「已发送」但用户永远收不到
+    throw new APIError("INTERNAL_SERVER_ERROR", { message: "验证码发送失败，请稍后重试" });
+  }
+}
+
+const fixedCode = fixedCodeForEnvironment();
 
 /**
  * Better Auth 配置。
@@ -64,12 +107,27 @@ export const auth = betterAuth({
     ...lanOrigins(),
   ],
   /**
+   * 限流只生产开启：CI / 冒烟 / E2E 需要连续登录，不希望被 5 次/分钟卡住。
+   * 生产下短信发送另有「同一手机号 60 秒冷却」（数据库计数，多实例共享）。
+   */
+  rateLimit: isProduction
+    ? {
+        enabled: true,
+        window: 60,
+        max: 60,
+        customRules: {
+          "/phone-number/send-otp": { window: 60, max: 5 },
+          "/phone-number/verify": { window: 60, max: 10 },
+        },
+      }
+    : { enabled: false },
+  /**
    * 内部账号（admin）走 credential 通道，但前端不出现密码框：
    * 由 /api/v1/auth/admin-login 在服务端换取会话，只接受字面量 "admin"。
-   * 生产环境把 ALLOW_ADMIN_LOGIN 设为 false 即整体关闭。
+   * 生产环境永远关闭（devOnlyFlag），即使误配 ALLOW_ADMIN_LOGIN 也不生效。
    */
   emailAndPassword: {
-    enabled: process.env.ALLOW_ADMIN_LOGIN === "true",
+    enabled: devOnlyFlag("ALLOW_ADMIN_LOGIN"),
     minPasswordLength: 6,
   },
   plugins: [
@@ -77,19 +135,13 @@ export const auth = betterAuth({
       otpLength: 6,
       expiresIn: 300,
       allowedAttempts: 3,
-      // 官方建议不要 await：发送失败只记日志，不阻塞登录请求。
-      // 但必须 catch，否则真实通道报错会变成 unhandled rejection。
-      sendOTP: ({ phoneNumber: phone, code }) => {
-        otpProvider.send(phone, code).catch((error) => {
-          const masked = phone.replace(/^\+86(\d{3})\d{4}(\d{4})$/, "$1****$2");
-          console.error(`[OTP] 发送失败 ${masked}`, error);
-        });
-      },
-      // 开发环境固定验证码，便于前端联调与自动化冒烟
-      ...(isMockOtpEnabled
+      // 发送失败必须上抛：Better Auth 会 await 这个 Promise，失败时接口返回错误，
+      // 前端不会再出现「提示已发送但收不到短信」。
+      sendOTP: ({ phoneNumber: phone, code }) => sendOtpOrThrow(phone, code),
+      // 开发/测试环境固定验证码；生产环境 fixedCode 恒为 null，走真实随机码
+      ...(fixedCode
         ? {
-            verifyOTP: ({ code }: { phoneNumber: string; code: string }) =>
-              code === mockOtpCode,
+            verifyOTP: ({ code }: { phoneNumber: string; code: string }) => code === fixedCode,
           }
         : {}),
       signUpOnVerification: {

@@ -15,6 +15,7 @@
 
 import { createHash, createHmac } from "node:crypto";
 
+import { tencentSmsConfig, type TencentSmsConfig } from "../env";
 import type { OtpProvider } from "./index";
 
 const ENDPOINT = "sms.tencentcloudapi.com";
@@ -22,45 +23,9 @@ const SERVICE = "sms";
 const ACTION = "SendSms";
 const VERSION = "2021-01-11";
 
-type TencentSmsConfig = {
-  secretId: string;
-  secretKey: string;
-  sdkAppId: string;
-  signName: string;
-  templateId: string;
-  region: string;
-};
-
 function readConfig(): TencentSmsConfig {
-  const secretId = process.env.TENCENT_SMS_SECRET_ID?.trim();
-  const secretKey = process.env.TENCENT_SMS_SECRET_KEY?.trim();
-  const sdkAppId = process.env.TENCENT_SMS_SDK_APP_ID?.trim();
-  const signName = process.env.TENCENT_SMS_SIGN_NAME?.trim();
-  const templateId = process.env.TENCENT_SMS_TEMPLATE_ID?.trim();
-  const region = process.env.TENCENT_SMS_REGION?.trim() || "ap-guangzhou";
-
-  const missing = [
-    ["TENCENT_SMS_SECRET_ID", secretId],
-    ["TENCENT_SMS_SECRET_KEY", secretKey],
-    ["TENCENT_SMS_SDK_APP_ID", sdkAppId],
-    ["TENCENT_SMS_SIGN_NAME", signName],
-    ["TENCENT_SMS_TEMPLATE_ID", templateId],
-  ]
-    .filter(([, value]) => !value)
-    .map(([key]) => key);
-
-  if (missing.length > 0) {
-    throw new Error(`腾讯云短信缺少环境变量：${missing.join("、")}`);
-  }
-
-  return {
-    secretId: secretId as string,
-    secretKey: secretKey as string,
-    sdkAppId: sdkAppId as string,
-    signName: signName as string,
-    templateId: templateId as string,
-    region,
-  };
+  // 统一走 env 模块：缺哪一项、报什么错都在一处维护
+  return tencentSmsConfig();
 }
 
 function sha256Hex(input: string): string {

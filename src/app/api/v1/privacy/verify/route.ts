@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   try {
     const session = await requireSession(req);
     const { password } = schema.parse(await readJson(req));
-    const cookie = verifyPrivacyPassword(session.userId, password);
+    const cookie = await verifyPrivacyPassword(session.userId, password);
 
     const response = ok({ unlocked: true, expiresAt: cookie.expiresAt });
     response.cookies.set(PRIVACY_COOKIE, cookie.value, {

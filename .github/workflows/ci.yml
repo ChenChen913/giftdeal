@@ -9,9 +9,11 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     env:
+      # CI 显式声明为 test：允许 mock 短信 + 固定验证码，但日志不打印验证码
+      APP_ENV: test
       # 全部指向本地 PGlite，CI 不需要外部数据库
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:55432/postgres
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:55432/postgres
@@ -34,13 +36,13 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: 安装依赖（postinstall 会生成 Prisma 客户端）
+      - name: 安装依赖
         run: npm ci
 
       - name: 类型检查
         run: npm run typecheck
 
-      - name: 单元测试
+      - name: 单元测试 + 服务层测试（PGlite）
         run: npm test
 
       - name: 生产构建
@@ -70,3 +72,50 @@ jobs:
           npm run smoke
 
           kill $APP_PID $DB_PID 2>/dev/null || true
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      APP_ENV: test
+      # 构建期需要数据库连接串（模块加载会校验存在性，但不会真正连接）
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:55440/postgres
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:55440/postgres
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-in-production
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      SMS_PROVIDER: mock
+      OTP_ALLOW_FIXED_CODE: "true"
+      OTP_MOCK_CODE: "123456"
+      PRIVACY_PASSWORD: "331633"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 安装 Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: 生产构建
+        run: npm run build
+
+      - name: Playwright E2E（独立 PGlite + 独立端口）
+        run: npm run test:e2e
+
+      - name: 失败时上传报告与截图
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

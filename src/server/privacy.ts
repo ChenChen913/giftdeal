@@ -8,36 +8,34 @@
  * - 换账号、换设备、Cookie 过期都会自动回到遮罩状态
  *
  * 密码只存在服务端环境变量里（PRIVACY_PASSWORD），不会进入前端打包产物。
+ *
+ * 生产环境约束（见 server/env.ts）：
+ * - 必须显式配置 PRIVACY_PASSWORD，且至少 8 位、非重复/连续/常见弱口令
+ * - 未配置或不达标 → 接口直接 503，不会回退到默认密码
+ *
+ * 失败锁定：
+ * - 计数落 `throttle` 表（不是进程内 Map），多实例部署下同样有效
+ * - 5 次错误锁定 60 秒；验证通过后清零
  */
 
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
-import { AppError } from "@/server/http/errors";
+import { ConfigError, isProduction, privacyPassword } from "./env";
+import { AppError } from "./http/errors";
+import { clearThrottle, consumeThrottle, readThrottle, throttleKeys } from "./throttle";
 
 export const PRIVACY_COOKIE = "gd_privacy";
 /** 解锁有效期：8 小时 */
 export const PRIVACY_TTL_MS = 8 * 60 * 60 * 1000;
 
 /** 连续输错几次后暂时锁定 */
-const MAX_ATTEMPTS = 5;
-const LOCK_MS = 60 * 1000;
-
-/**
- * 失败计数放进程内。
- * 与现有 OTP 节流一样的已知局限：Vercel 多实例下不严格，
- * 但二次验证本身要求先登录，风险可控；生产化可换 Redis。
- */
-const failures = new Map<string, { count: number; lockedUntil: number }>();
+export const PRIVACY_MAX_ATTEMPTS = 5;
+export const PRIVACY_LOCK_SECONDS = 60;
 
 function secret(): string {
   const value = process.env.BETTER_AUTH_SECRET;
-  if (!value) throw new Error("BETTER_AUTH_SECRET 未配置，隐私解锁不可用");
+  if (!value) throw new ConfigError("BETTER_AUTH_SECRET", "BETTER_AUTH_SECRET 未配置，隐私解锁不可用");
   return value;
-}
-
-/** 隐私密码：默认 331633，可用 PRIVACY_PASSWORD 覆盖 */
-function expectedPassword(): string {
-  return process.env.PRIVACY_PASSWORD?.trim() || "331633";
 }
 
 /** 先哈希再比较：既避免明文比较，也不泄露密码长度 */
@@ -59,8 +57,15 @@ function parseToken(token: string | undefined, userId: string): number | null {
   const [payload, signature, ...rest] = token.split(".");
   if (!payload || !signature || rest.length > 0) return null;
 
-  const expected = Buffer.from(sign(payload));
-  const actual = Buffer.from(signature);
+  let expected: Buffer;
+  let actual: Buffer;
+  try {
+    expected = Buffer.from(sign(payload));
+    actual = Buffer.from(signature);
+  } catch {
+    // 签名密钥未配置时，按「未解锁」处理，不把配置错误暴露成 500
+    return null;
+  }
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
 
   let decoded: string;
@@ -111,33 +116,66 @@ export function privacyCookie(userId: string): {
   };
 }
 
-/** 校验隐私密码；通过后签发解锁 Cookie */
-export function verifyPrivacyPassword(userId: string, password: string) {
-  const now = Date.now();
-  const record = failures.get(userId);
-
-  if (record && record.lockedUntil > now) {
-    const wait = Math.ceil((record.lockedUntil - now) / 1000);
-    throw new AppError("PRIVACY_LOCKED", undefined, `密码错误次数过多，请 ${wait} 秒后再试`);
+/**
+ * 校验隐私密码；通过后签发解锁 Cookie。
+ *
+ * 顺序：先查锁定 → 再比对密码 → 失败计数 / 成功清零。
+ * 计数在数据库里，多个实例共享同一个 lockedUntil。
+ */
+export async function verifyPrivacyPassword(userId: string, password: string) {
+  let expectedPassword: string;
+  try {
+    expectedPassword = privacyPassword();
+  } catch (error) {
+    if (error instanceof ConfigError) {
+      throw new AppError("PRIVACY_UNAVAILABLE", undefined, error.message);
+    }
+    throw error;
   }
 
-  const input = digest(password ?? "");
-  const expected = digest(expectedPassword());
-  const ok = timingSafeEqual(input, expected);
+  const key = throttleKeys.privacyFail(userId);
+  const state = await readThrottle(key, PRIVACY_MAX_ATTEMPTS, PRIVACY_LOCK_SECONDS);
 
-  if (!ok) {
-    const count = (record?.count ?? 0) + 1;
-    const lockedUntil = count >= MAX_ATTEMPTS ? now + LOCK_MS : 0;
-    failures.set(userId, { count: lockedUntil ? 0 : count, lockedUntil });
+  if (!state.allowed) {
     throw new AppError(
-      "PRIVACY_PASSWORD_INVALID",
+      "PRIVACY_LOCKED",
       undefined,
-      lockedUntil
-        ? "密码错误次数过多，请 1 分钟后再试"
-        : `隐私密码不正确，还可尝试 ${MAX_ATTEMPTS - count} 次`,
+      `密码错误次数过多，请 ${state.retryAfterSeconds} 秒后再试`,
     );
   }
 
-  failures.delete(userId);
+  const input = digest(password ?? "");
+  const expected = digest(expectedPassword);
+  const ok = timingSafeEqual(input, expected);
+
+  if (!ok) {
+    const next = await consumeThrottle(key, PRIVACY_MAX_ATTEMPTS, PRIVACY_LOCK_SECONDS);
+    if (!next.allowed) {
+      throw new AppError(
+        "PRIVACY_LOCKED",
+        undefined,
+        `密码错误次数过多，请 ${next.retryAfterSeconds} 秒后再试`,
+      );
+    }
+    const left = Math.max(0, PRIVACY_MAX_ATTEMPTS - next.count);
+    throw new AppError("PRIVACY_PASSWORD_INVALID", undefined, `隐私密码不正确，还可尝试 ${left} 次`);
+  }
+
+  await clearThrottle(key);
   return privacyCookie(userId);
+}
+
+/**
+ * 生产环境自检用：确认隐私验证真的可用。
+ * 开发环境永远通过（有默认密码）。
+ */
+export function privacyConfigProblem(): string | null {
+  if (!isProduction) return null;
+  try {
+    privacyPassword();
+    secret();
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "隐私验证配置不合法";
+  }
 }

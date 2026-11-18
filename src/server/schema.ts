@@ -276,6 +276,18 @@ export const giftPlan = pgTable(
   ],
 );
 
+/**
+ * 通用限流计数器（固定窗口）。
+ * 隐私密码锁定与短信重发冷却共用；放数据库是为了多实例部署下仍能生效。
+ * 不做定时清理：行数等于「出现过的业务键」，量级很小。
+ */
+export const throttle = pgTable("throttle", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  windowStart: timestamp("window_start", { precision: 3 }).notNull().defaultNow(),
+  updatedAt,
+});
+
 // ------------------------------------------------------------
 // 关系（只用于 query API 的 with/join，不生成 DDL）
 // ------------------------------------------------------------
@@ -299,6 +311,19 @@ export const userRelations = relations(user, ({ one, many }) => ({
 export const membershipRelations = relations(membership, ({ one }) => ({
   ledger: one(ledger, { fields: [membership.ledgerId], references: [ledger.id] }),
   user: one(user, { fields: [membership.userId], references: [user.id] }),
+}));
+
+/**
+ * 认证表的关系。
+ * Better Auth 的 drizzleAdapter 开了 `joins: true`，会用 `db.query.session.findFirst({ with: { user } })`
+ * 取会话；缺少这两个关系时 getSession 会直接抛 referencedTable 相关错误。
+ */
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(user, { fields: [session.userId], references: [user.id] }),
+}));
+
+export const accountRelations = relations(account, ({ one }) => ({
+  user: one(user, { fields: [account.userId], references: [user.id] }),
 }));
 
 export const contactRelations = relations(contact, ({ one, many }) => ({

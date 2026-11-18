@@ -70,8 +70,4 @@ export function recordToDto(row: RecordRow): RecordDto {
   };
 }
 
-/** 查询记录时统一的 include，保证 DTO 字段齐全 */
-export const recordInclude = {
-  contact: { select: { id: true, name: true, relationTag: true } },
-  settledRecord: { select: { id: true } },
-} as const;
+/** 记录 DTO 的关联字段约定：contact 三字段 + 被结清记录 id（各 service 用本地 `with` 常量声明） */

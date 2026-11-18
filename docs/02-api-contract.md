@@ -92,9 +92,10 @@
 | `INVITE_USED` | 410 | 邀请已被使用 |
 | `INVITE_REVOKED` | 410 | 邀请已撤销 |
 | `FORBIDDEN` | 403 | 角色不足（如非 OWNER 改账本名） |
-| `RATE_LIMITED` | 429 | 验证码 60 秒节流（登录验证码）/ Better Auth 内置限流 |
+| `RATE_LIMITED` | 429 | 业务限流（当前路由层未直接返回，保留给后续接口） |
 | `PRIVACY_PASSWORD_INVALID` | 422 | 隐私密码不正确 |
 | `PRIVACY_LOCKED` | 429 | 隐私密码连续错误 5 次，锁定 1 分钟 |
+| `PRIVACY_UNAVAILABLE` | 503 | 生产环境未正确配置隐私密码（缺失或强度不足） |
 | `INTERNAL_ERROR` | 500 | 未预期异常（`message` 统一为「服务器开小差了」） |
 
 ### 1.7 枚举字典
@@ -748,9 +749,11 @@ await authClient.signOut();    // POST /api/auth/sign-out
 
 行为：
 1. token 不存在 → `404 INVITE_NOT_FOUND`
-2. `status != PENDING` → `410`（`INVITE_EXPIRED` / `INVITE_USED` / `INVITE_REVOKED`）
-3. 已是该账本成员 → **不报错**，返回 `alreadyMember: true`（幂等，且不消耗 token）
-4. 否则：事务内创建 `Membership(MEMBER)` + 写入 `usedAt` / `usedByUserId`
+2. **已是该账本成员 → 直接返回 `alreadyMember: true`**（幂等；即使邀请已过期 / 已撤销也不报错，不消耗 token）
+3. 非成员且 `status != PENDING` → `410`（`INVITE_EXPIRED` / `INVITE_USED` / `INVITE_REVOKED`）
+4. 否则：事务内抢占式写入 `usedAt` / `usedByUserId` + 创建 `Membership(MEMBER)`
+
+> 并发：两个用户同时接受同一链接时，只有一个能把 `usedAt` 从 null 改掉；另一个返回 `410 INVITE_USED`。同一用户并发重复接受则由 `(ledgerId, userId)` 唯一约束兜底，按「已是成员」处理。
 
 出参 `200`：
 
@@ -933,11 +936,13 @@ await authClient.signOut();    // POST /api/auth/sign-out
 入参：`{ "password": "331633" }`
 出参 `200`：`{ "unlocked": true, "expiresAt": "2026-11-10T19:14:01.577Z" }`
 
-- 密码由服务端环境变量 `PRIVACY_PASSWORD` 配置（默认 `331633`），**只存在服务端**，不进入前端打包产物。
+- 密码由服务端环境变量 `PRIVACY_PASSWORD` 配置，**只存在服务端**，不进入前端打包产物。
+  - 开发 / 测试环境：未配置时回退到 `331633`，方便本地体验；
+  - 生产环境：必须显式配置且至少 8 位、非重复字符 / 连续数字 / 常见弱口令，否则返回 `503 PRIVACY_UNAVAILABLE`。
 - 比对使用 SHA-256 摘要 + `timingSafeEqual`，避免明文比较与时序攻击。
-- 连续输错 **5 次**锁定 1 分钟，返回 `429 PRIVACY_LOCKED`；成功一次即清零。
+- 连续输错 **5 次**锁定 1 分钟，返回 `429 PRIVACY_LOCKED`；成功一次即清零。失败计数存 `throttle` 表，多实例部署下共享。
 - 成功后服务端下发 `gd_privacy` Cookie（httpOnly / sameSite=lax / 8 小时，HMAC 签名并绑定 userId）。
-- 错误：`422 PRIVACY_PASSWORD_INVALID`（密码错误，message 会提示剩余次数）、`429 PRIVACY_LOCKED`（锁定中）。
+- 错误：`422 PRIVACY_PASSWORD_INVALID`（密码错误，message 会提示剩余次数）、`429 PRIVACY_LOCKED`（锁定中）、`503 PRIVACY_UNAVAILABLE`（服务端密码未配置或强度不足）。
 
 ### 11.4 POST /api/v1/privacy/lock
 

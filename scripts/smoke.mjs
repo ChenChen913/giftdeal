@@ -273,8 +273,8 @@ async function main() {
 
   const repeatAccept = await call("POST", `/api/v1/invites/${token}/accept`);
   check(
-    "重复接受同一邀请返回 410 INVITE_USED",
-    repeatAccept.status === 410 && repeatAccept.body?.error?.code === "INVITE_USED",
+    "已是成员时重复接受邀请：幂等成功且不重复入册",
+    repeatAccept.status === 200 && repeatAccept.body?.data?.alreadyMember === true,
     repeatAccept.body,
   );
 

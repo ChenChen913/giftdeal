@@ -153,10 +153,18 @@ export async function updateContact(
         ...(input.note !== undefined ? { note: input.note } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(contact.id, contactId))
+      // 账本与软删条件一起进 WHERE：并发删除后不会被这次更新写回
+      .where(
+        and(
+          eq(contact.id, contactId),
+          eq(contact.ledgerId, ctx.ledgerId),
+          isNull(contact.deletedAt),
+        ),
+      )
       .returning();
 
     const row = updated[0];
+    if (!row) throw new AppError("NOT_FOUND");
     const statsMap = await contactStatsMap(ctx.ledgerId, [row.id]);
     return contactToDto(row, statsMap.get(row.id) ?? emptyContactStats());
   } catch (error) {
@@ -178,10 +186,19 @@ export async function deleteContact(ctx: LedgerContext, contactId: string) {
 
   // 同一事务里完成软删与计数，避免读到中间状态
   const counted = await db.transaction(async (tx) => {
-    await tx
+    const removed = await tx
       .update(contact)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(contact.id, contactId));
+      .where(
+        and(
+          eq(contact.id, contactId),
+          eq(contact.ledgerId, ctx.ledgerId),
+          isNull(contact.deletedAt),
+        ),
+      )
+      .returning({ id: contact.id });
+    if (removed.length === 0) throw new AppError("NOT_FOUND");
+
     return tx
       .select({ n: count() })
       .from(record)

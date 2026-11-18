@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { DEFAULT_LEDGER_NAME } from "@/lib/constants";
 
-import { db } from "./db-drizzle";
+import { db } from "@/server/db-drizzle";
 import { ledger, membership, user } from "./schema";
 
 /**

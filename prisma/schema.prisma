@@ -14,10 +14,11 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
-  // Prisma 7 的查询编译器是 WASM。默认 nodejs runtime 会把 wasm 以 base64 内联，
-  // 运行时用 new WebAssembly.Module() 动态编译——Cloudflare Workers 禁止这个操作。
-  // workerd runtime 改为静态 wasm 导入，才能部署到 Workers。
-  runtime  = "workerd"
+  // 运行时已经全面改用 Drizzle，Prisma Client 只服务于 `prisma/seed.ts`（Node 脚本）。
+  // 因此这里必须用 nodejs runtime：workerd runtime 采用静态 wasm 导入，
+  // 在 Node/tsx 下会报 "loaded wasm module was unexpectedly undefined"。
+  // Cloudflare Workers 不需要 Prisma Client（见 src/server/db-neon.ts）。
+  runtime  = "nodejs"
 }
 
 datasource db {
@@ -380,4 +381,18 @@ model LifeEvent {
   @@index([ledgerId, occurredAt])
   @@index([ledgerId, deletedAt])
   @@map("life_event")
+}
+
+/// 通用限流计数器（固定窗口）。
+/// 目前用于：隐私密码连续错误锁定、生产环境同一手机号的重发冷却。
+/// 落在数据库而不是进程内存，是为了多实例部署时仍然有效。
+model Throttle {
+  /// 业务键，例如 privacy-fail:{userId} / otp-send:{phone}
+  key         String   @id
+  count       Int      @default(0)
+  /// 当前窗口的起点
+  windowStart DateTime @default(now()) @map("window_start") @db.Timestamp(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp(3)
+
+  @@map("throttle")
 }

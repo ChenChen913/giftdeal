@@ -1,20 +1,33 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/server/auth";
+import { devOnlyFlag, isProduction } from "@/server/env";
 import { AppError } from "@/server/http/errors";
 import { fail } from "@/server/http/envelope";
 import { readJson } from "@/server/http/route";
 
 const ADMIN_EMAIL = "admin@giftdeal.local";
-const ADMIN_PASSWORD = process.env.ADMIN_LOGIN_PASSWORD ?? "123456";
 
 /**
  * 内部快捷登录：只接受字面量 "admin"。
- * 前端不出现密码框，密码只在服务端使用；生产环境把 ALLOW_ADMIN_LOGIN 设为 false 即关闭。
+ *
+ * 安全约束：
+ * - 生产环境永远关闭（devOnlyFlag 为 false），即使误设 ALLOW_ADMIN_LOGIN=true 也不生效；
+ * - 启动自检还会把 ALLOW_ADMIN_LOGIN=true 视为生产配置错误，直接拒绝启动；
+ * - 密码只从 ADMIN_LOGIN_PASSWORD 读取，生产环境不会回退到 "123456"。
  */
+function adminPassword(): string {
+  const configured = process.env.ADMIN_LOGIN_PASSWORD?.trim();
+  if (configured) return configured;
+  if (isProduction) {
+    throw new AppError("FORBIDDEN", undefined, "该登录方式未开启");
+  }
+  return "123456";
+}
+
 export async function POST(req: Request) {
   try {
-    if (process.env.ALLOW_ADMIN_LOGIN !== "true") {
+    if (!devOnlyFlag("ALLOW_ADMIN_LOGIN")) {
       throw new AppError("FORBIDDEN", undefined, "该登录方式未开启");
     }
 
@@ -28,7 +41,7 @@ export async function POST(req: Request) {
     }
 
     const result = await auth.api.signInEmail({
-      body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+      body: { email: ADMIN_EMAIL, password: adminPassword() },
       returnHeaders: true,
     });
 

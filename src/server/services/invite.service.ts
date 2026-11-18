@@ -125,19 +125,19 @@ export async function acceptInvite(token: string, userId: string) {
     const invite = rows[0];
     if (!invite) throw new AppError("INVITE_NOT_FOUND");
 
-    const status = deriveInviteStatus(invite);
-    if (status !== "PENDING") throw statusToError(status);
-
     const existing = await tx
       .select({ id: membership.id })
       .from(membership)
       .where(and(eq(membership.ledgerId, invite.ledgerId), eq(membership.userId, userId)))
       .limit(1);
 
-    // 已是成员：幂等返回，且不消耗邀请
+    // 已是成员：幂等返回，且不消耗邀请（即使邀请已过期/被撤销，重新点开也不该报错）
     if (existing.length > 0) {
       return { ledgerId: invite.ledgerId, alreadyMember: true as const };
     }
+
+    const status = deriveInviteStatus(invite);
+    if (status !== "PENDING") throw statusToError(status);
 
     // 抢占式消费，保证并发下只有一个请求能成功
     const claimed = await tx
@@ -147,14 +147,19 @@ export async function acceptInvite(token: string, userId: string) {
       .returning({ id: inviteTable.id });
     if (claimed.length === 0) throw new AppError("INVITE_USED");
 
-    await tx.insert(membership).values({
-      id: crypto.randomUUID(),
-      ledgerId: invite.ledgerId,
-      userId,
-      role: "MEMBER",
-    });
+    const inserted = await tx
+      .insert(membership)
+      .values({
+        id: crypto.randomUUID(),
+        ledgerId: invite.ledgerId,
+        userId,
+        role: "MEMBER",
+      })
+      // 并发下同一用户可能已经在另一个请求里入册，唯一约束冲突时按「已是成员」处理
+      .onConflictDoNothing({ target: [membership.ledgerId, membership.userId] })
+      .returning({ id: membership.id });
 
-    return { ledgerId: invite.ledgerId, alreadyMember: false as const };
+    return { ledgerId: invite.ledgerId, alreadyMember: inserted.length === 0 };
   });
 
   const ledgerRows = await db

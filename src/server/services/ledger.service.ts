@@ -165,6 +165,7 @@ export async function renameLedger(ctx: LedgerContext, name: string) {
     .returning();
 
   const ledger = updated[0];
+  if (!ledger) throw new AppError("LEDGER_NOT_FOUND");
   return {
     id: ledger.id,
     name: ledger.name,
@@ -257,10 +258,13 @@ export async function transferOwnership(ctx: LedgerContext, targetUserId: string
       throw new AppError("FORBIDDEN", undefined, "你已不是该账本管理员");
     }
 
-    await tx
+    const promoted = await tx
       .update(membership)
       .set({ role: "OWNER" })
-      .where(and(eq(membership.ledgerId, ctx.ledgerId), eq(membership.userId, targetUserId)));
+      .where(and(eq(membership.ledgerId, ctx.ledgerId), eq(membership.userId, targetUserId)))
+      .returning({ id: membership.id });
+    // 目标成员在事务中被移除时要整体回滚，不能留下没有 OWNER 的账本
+    if (promoted.length === 0) throw new AppError("NOT_FOUND", undefined, "该用户不是本账本成员");
 
     return { transferred: true, newOwnerId: targetUserId };
   });

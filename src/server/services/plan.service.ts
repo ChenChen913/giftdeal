@@ -197,7 +197,8 @@ export async function createPlan(ctx: LedgerContext, input: CreatePlanInput): Pr
     where: eq(giftPlan.id, inserted[0].id),
     with: planWith,
   });
-  return toDto(row!);
+  if (!row) throw new AppError("INTERNAL_ERROR", undefined, "预备写入后读取失败");
+  return toDto(row);
 }
 
 export async function updatePlan(
@@ -229,13 +230,20 @@ export async function updatePlan(
       ...(input.note !== undefined ? { note: input.note } : {}),
       updatedAt: new Date(),
     })
-    .where(eq(giftPlan.id, planId));
+    .where(
+      and(
+        eq(giftPlan.id, planId),
+        eq(giftPlan.ledgerId, ctx.ledgerId),
+        isNull(giftPlan.deletedAt),
+      ),
+    );
 
   const row = await db.query.giftPlan.findFirst({
     where: eq(giftPlan.id, planId),
     with: planWith,
   });
-  return toDto(row!);
+  if (!row) throw new AppError("NOT_FOUND");
+  return toDto(row);
 }
 
 /** 软删除：预备取消或记错了 */
@@ -252,7 +260,13 @@ export async function deletePlan(ctx: LedgerContext, planId: string) {
   await db
     .update(giftPlan)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
-    .where(eq(giftPlan.id, planId));
+    .where(
+      and(
+        eq(giftPlan.id, planId),
+        eq(giftPlan.ledgerId, ctx.ledgerId),
+        isNull(giftPlan.deletedAt),
+      ),
+    );
 
   return { deleted: true };
 }
@@ -260,6 +274,11 @@ export async function deletePlan(ctx: LedgerContext, planId: string) {
 /**
  * 完成一笔预备。
  * 默认同时生成一条真实礼金记录并关联；也可以只标记完成（例如礼金早先已单独记过）。
+ *
+ * 并发一致性：
+ * - 先插入真实记录、再用 `status = 'PLANNED'` 条件更新抢占完成状态；
+ * - 抢不到说明另一个请求已经完成，整笔事务回滚（包括刚插入的记录）；
+ * - 因此不会出现「预备已完成但记录没生成」或「同一笔预备生成两条记录」。
  */
 export async function completePlan(
   ctx: LedgerContext,
@@ -295,7 +314,8 @@ export async function completePlan(
       });
     }
 
-    await tx
+    // 条件更新抢占：并发下只有一个请求能把 PLANNED 改成 DONE
+    const claimed = await tx
       .update(giftPlan)
       .set({
         status: "DONE",
@@ -303,7 +323,16 @@ export async function completePlan(
         updatedAt: new Date(),
         ...(createdRecordId ? { recordId: createdRecordId } : {}),
       })
-      .where(eq(giftPlan.id, plan.id));
+      .where(
+        and(
+          eq(giftPlan.id, plan.id),
+          eq(giftPlan.ledgerId, ctx.ledgerId),
+          eq(giftPlan.status, "PLANNED"),
+          isNull(giftPlan.deletedAt),
+        ),
+      )
+      .returning({ id: giftPlan.id });
+    if (claimed.length === 0) throw new AppError("CONFLICT", undefined, "这笔预备已经完成了");
 
     const updated = await tx.query.giftPlan.findFirst({
       where: eq(giftPlan.id, plan.id),
@@ -317,6 +346,7 @@ export async function completePlan(
         })
       : null;
 
-    return { plan: toDto(updated!), record: created ? recordToDto(created) : null };
+    if (!updated) throw new AppError("INTERNAL_ERROR", undefined, "预备完成状态读取失败");
+    return { plan: toDto(updated), record: created ? recordToDto(created) : null };
   });
 }

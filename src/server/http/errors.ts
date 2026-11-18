@@ -21,6 +21,7 @@ export type ErrorCode =
   | "RATE_LIMITED"
   | "PRIVACY_PASSWORD_INVALID"
   | "PRIVACY_LOCKED"
+  | "PRIVACY_UNAVAILABLE"
   | "CONFLICT"
   | "INTERNAL_ERROR";
 
@@ -45,6 +46,7 @@ export const ERROR_STATUS: Record<ErrorCode, number> = {
   RATE_LIMITED: 429,
   PRIVACY_PASSWORD_INVALID: 422,
   PRIVACY_LOCKED: 429,
+  PRIVACY_UNAVAILABLE: 503,
   CONFLICT: 409,
   INTERNAL_ERROR: 500,
 };
@@ -70,6 +72,7 @@ const DEFAULT_MESSAGES: Record<ErrorCode, string> = {
   RATE_LIMITED: "操作过于频繁，请稍后再试",
   PRIVACY_PASSWORD_INVALID: "隐私密码不正确",
   PRIVACY_LOCKED: "密码错误次数过多，请稍后再试",
+  PRIVACY_UNAVAILABLE: "隐私验证暂不可用，请检查服务端配置",
   CONFLICT: "数据冲突",
   INTERNAL_ERROR: "服务器开小差了",
 };

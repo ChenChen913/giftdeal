@@ -94,7 +94,7 @@ User ──< Membership >── Ledger ──< Contact ──< Record
 
 **为什么 `isSettled` 不落库**：布尔 + 时间戳双写必然出现「已结清但没有结清时间」的脏数据。只保留 `settledAt`，DTO 里派生 `isSettled`。
 
-**为什么 `amountCents` 用 Int 而不是 Decimal**：礼金永远是整数元，以分为单位存整数可以彻底避免浮点误差。Int 上限约 21.4 亿分（2147 万元），单笔记录远远够用；聚合时 Prisma `aggregate` 返回 number，在 MVP 数据规模下不会溢出。
+**为什么 `amountCents` 用 Int 而不是 Decimal**：礼金永远是整数元，以分为单位存整数可以彻底避免浮点误差。Int 上限约 21.4 亿分（2147 万元），单笔记录远远够用；聚合时 Drizzle 的 `sum()` 在 Postgres 上返回 bigint（驱动给字符串），服务层统一用 `toCents()` 归一为 number；MVP 数据规模下不会溢出。
 
 ### 2.6 Invite（邀请）
 
@@ -151,6 +151,22 @@ User ──< Membership >── Ledger ──< Contact ──< Record
 
 索引：`(ledgerId, status, expectedAt)` 支撑「最近要办的事」；`(ledgerId, contactId)` 支撑按人筛选；`(ledgerId, deletedAt)` 支撑软删过滤。
 
+### 2.8 Throttle（限流计数）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| key | Text (PK) | 业务键，如 `privacy-fail:{userId}`、`otp-send:{phone}` |
+| count | Int | 当前窗口内计数 |
+| windowStart | Timestamp(3) | 窗口起点 |
+| updatedAt | Timestamp(3) | 最近一次写入 |
+
+固定窗口：`consumeThrottle()` 用一条 `INSERT ... ON CONFLICT DO UPDATE` 完成「过期重置 + 计数 +1」，并发下由行锁保证原子性。
+
+- 隐私密码：5 次 / 60 秒，成功后删除该键；
+- 短信重发：同一手机号 1 次 / 60 秒（仅生产环境启用）。
+
+放在数据库而不是进程内存，是为了多实例部署时计数一致；写入频率极低，不与业务读写争抢。
+
 ---
 
 ## 3. 删除策略（已定：全部软删除）
@@ -164,7 +180,7 @@ User ──< Membership >── Ledger ──< Contact ──< Record
 | 删除 Contact | `deletedAt = now()` | 联系人列表 / 搜索 / 详情默认不可见 | **其历史记录仍然保留并计入账本统计与按人对账**（按 id 仍可查到该联系人的流水） |
 | 删除 Record | `deletedAt = now()` | 记录列表 / 待回礼 / 按人对账全部排除 | 不计入任何汇总 |
 | 删除 GIVEN 记录（它结清过某条 RECEIVED） | 软删该记录 + **同事务把目标 RECEIVED 回退为未结清**（`settledAt = null, settledByRecordId = null`） | 目标记录重新出现在「待回礼」 | 两条记录都不再计入 |
-| 删除 RECEIVED 记录（被某条 GIVEN 结清过） | 软删该记录 + 同事务把那条 GIVEN 的 `settledByRecordId` 置 null | — | 该 GIVEN 记录保留，只是不再标记「用于结清」 |
+| 删除 RECEIVED 记录（被某条 GIVEN 结清过） | 软删该记录 + 同事务清空它自己的 `settledAt / settledByRecordId` | — | 该 GIVEN 记录保留为普通送礼；收礼不再出现在任何统计里 |
 | 删除 GiftPlan | `deletedAt = now()` | 预备清单不再显示 | 原本就不计入统计；**已生成的 Record 保留** |
 
 ### 3.2 唯一约束与软删除的冲突
@@ -178,13 +194,19 @@ CREATE UNIQUE INDEX "contact_ledger_name_active_key"
   WHERE "deleted_at" IS NULL;
 ```
 
-创建 / 重命名联系人时，捕获 Prisma `P2002` 并映射为 `CONTACT_NAME_DUPLICATE`（409）。
+创建 / 重命名联系人时，捕获唯一约束冲突（Postgres `23505` / Prisma `P2002`）并映射为 `CONTACT_NAME_DUPLICATE`（409）。
 
 ### 3.3 为什么不物理删除
 
 - 物理删除会让「已结清」的自关联断链，历史对账结果会随时间漂移。
 - 软删除让「误删恢复」在未来变成一次 `UPDATE`，不需要数据恢复流程。
 - MVP 数据量小，`deletedAt IS NULL` 的过滤成本可忽略。
+
+---
+
+### 3.4 `updated_at` 的默认值
+
+初始迁移由 Prisma 生成，`updated_at` 只有 `NOT NULL` 没有 `DEFAULT`（Prisma 的 `@updatedAt` 是客户端生成）。Drizzle schema 声明了 `.defaultNow()`，插入时省略该列会写 `DEFAULT`，于是报 not-null 违规。迁移 `20261118094500_updated_at_defaults` 已在数据库层补上 `DEFAULT CURRENT_TIMESTAMP`，两边行为一致。
 
 ---
 
