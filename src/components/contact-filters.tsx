@@ -147,68 +147,99 @@ export function ContactFilters({
   counts?: Record<string, number>;
   timingCounts?: Record<string, number>;
 }) {
+  /**
+   * 手机端 4 行分类（人群 10 项、礼金 6 项…）会换行成 226px 高的密集墙，
+   * 把亲友列表挤出首屏。这里默认收起成一行「筛选」摘要，展开后每行横向滑动。
+   * 桌面端由 CSS 强制始终展开，交互与改动前完全一致。
+   */
+  const [open, setOpen] = useState(false);
+  const activeLabels = [
+    relation !== "all" ? RELATION_OPTIONS.find((option) => option.key === relation)?.label : null,
+    scene !== "all" ? SCENE_OPTIONS.find((option) => option.key === scene)?.label : null,
+    timing !== "all" ? TIMING_OPTIONS.find((option) => option.key === timing)?.label : null,
+    stance !== "all" ? STANCE_OPTIONS.find((option) => option.key === stance)?.label : null,
+  ].filter((label): label is string => Boolean(label));
+
   return (
-    <div className="filter-bar">
-      <div className="filter-row">
-        <span className="filter-label">人群</span>
-        {RELATION_OPTIONS.map((option) => (
-          <button
-            key={option.key}
-            type="button"
-            className={`filter-chip ${relation === option.key ? "on" : ""}`}
-            onClick={() => onRelation(option.key)}
-          >
-            {option.label}
-            {counts && option.key !== "all" && counts[option.key] > 0 ? (
-              <span className="count">{counts[option.key]}</span>
-            ) : null}
-          </button>
-        ))}
-      </div>
+    <div className={`filter-bar ${open ? "is-open" : ""}`}>
+      <button
+        type="button"
+        className="filter-toggle"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-controls="contact-filter-rows"
+      >
+        <span className="filter-toggle-title">筛选</span>
+        {activeLabels.length > 0 ? (
+          <span className="filter-toggle-count">{activeLabels.length}</span>
+        ) : null}
+        <span className="filter-toggle-summary">
+          {activeLabels.length > 0 ? activeLabels.join(" · ") : "全部亲友"}
+        </span>
+      </button>
 
-      <div className="filter-row">
-        <span className="filter-label">礼金</span>
-        {SCENE_OPTIONS.map((option) => (
-          <button
-            key={option.key}
-            type="button"
-            className={`filter-chip ${scene === option.key ? "on" : ""}`}
-            onClick={() => onScene(option.key)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <div className="filter-rows" id="contact-filter-rows">
+        <div className="filter-row">
+          <span className="filter-label">人群</span>
+          {RELATION_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className={`filter-chip ${relation === option.key ? "on" : ""}`}
+              onClick={() => onRelation(option.key)}
+            >
+              {option.label}
+              {counts && option.key !== "all" && counts[option.key] > 0 ? (
+                <span className="count">{counts[option.key]}</span>
+              ) : null}
+            </button>
+          ))}
+        </div>
 
-      <div className="filter-row">
-        <span className="filter-label">时序</span>
-        {TIMING_OPTIONS.map((option) => (
-          <button
-            key={option.key}
-            type="button"
-            className={`filter-chip ${timing === option.key ? "on" : ""}`}
-            onClick={() => onTiming(option.key)}
-          >
-            {option.label}
-            {timingCounts && option.key !== "all" && timingCounts[option.key] > 0 ? (
-              <span className="count">{timingCounts[option.key]}</span>
-            ) : null}
-          </button>
-        ))}
-      </div>
+        <div className="filter-row">
+          <span className="filter-label">礼金</span>
+          {SCENE_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className={`filter-chip ${scene === option.key ? "on" : ""}`}
+              onClick={() => onScene(option.key)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
 
-      <div className="filter-row">
-        <span className="filter-label">方向</span>
-        {STANCE_OPTIONS.map((option) => (
-          <button
-            key={option.key}
-            type="button"
-            className={`filter-chip ${stance === option.key ? "on" : ""}`}
-            onClick={() => onStance(option.key)}
-          >
-            {option.label}
-          </button>
-        ))}
+        <div className="filter-row">
+          <span className="filter-label">时序</span>
+          {TIMING_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className={`filter-chip ${timing === option.key ? "on" : ""}`}
+              onClick={() => onTiming(option.key)}
+            >
+              {option.label}
+              {timingCounts && option.key !== "all" && timingCounts[option.key] > 0 ? (
+                <span className="count">{timingCounts[option.key]}</span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="filter-row">
+          <span className="filter-label">方向</span>
+          {STANCE_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className={`filter-chip ${stance === option.key ? "on" : ""}`}
+              onClick={() => onStance(option.key)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

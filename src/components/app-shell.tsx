@@ -212,6 +212,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Icon name="swap" size={20} />
           <span>对账</span>
         </Link>
+        <Link
+          href="/events"
+          className={`bottomnav-item ${isActive("/events") ? "active" : ""}`}
+        >
+          <Icon name="calendar" size={20} />
+          <span>人生大事</span>
+        </Link>
         <button
           type="button"
           className="bottomnav-fab"

@@ -58,7 +58,7 @@
 |---|---|---|
 | 单元 + 服务层测试 | **112** | `npm test` |
 | 接口冒烟 | **70** | `npm run smoke` |
-| Playwright E2E | **11** | `npm run test:e2e` |
+| Playwright E2E | **13** | `npm run test:e2e` |
 
 > 数字以当前 `main` 的实际输出为准；CI 会跑同样的三套。
 
@@ -353,7 +353,7 @@ npm test              # 112 项：环境守卫 / 结清 / 预备并发 / 邀请 
 npm run build         # 严格生产构建（需 NEXT_PUBLIC_APP_URL=https://<生产域名>）
 npm run check:prod-guard                                              # 生产矩阵 A/B/B2/C
 npm run build:test && node scripts/check-prod-guard.mjs test-build    # 测试构建矩阵 D/E
-npm run test:e2e      # 11 项浏览器流程（内部会先 npm run build:test）
+npm run test:e2e      # 13 项浏览器流程（内部会先 npm run build:test）
 npm run smoke         # 70 项接口契约（需先启动测试构建并 seed）
 npm run db:cleanup -- --dry-run   # 限流表清理预演；去掉 --dry-run 才真删
 npm run cf:build      # Cloudflare / OpenNext 产物构建
